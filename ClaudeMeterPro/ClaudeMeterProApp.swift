@@ -21,6 +21,7 @@ struct MenuBarLabel: View {
     @ObservedObject var store: UsageStore
 
     private var pct: Int { store.usageInfo?.sessionPercentInt ?? 0 }
+    private var remaining: Int { 100 - pct }  // icons show remaining capacity
     private var tmr: String { store.formatCountdown(store.resetSecondsRemaining) }
     private var hasData: Bool { store.usageInfo != nil }
 
@@ -60,10 +61,11 @@ struct MenuBarLabel: View {
     }
 
     private var batteryIcon: String {
-        if pct >= 88 { return "battery.100" }
-        if pct >= 63 { return "battery.75" }
-        if pct >= 38 { return "battery.50" }
-        if pct >= 13 { return "battery.25" }
+        // remaining capacity: 14% used → 86% left → battery.75
+        if remaining >= 88 { return "battery.100" }
+        if remaining >= 63 { return "battery.75" }
+        if remaining >= 38 { return "battery.50" }
+        if remaining >= 13 { return "battery.25" }
         return "battery.0"
     }
 
@@ -80,10 +82,10 @@ struct MenuBarLabel: View {
     }
 
     private var circularIcon: String {
-        if pct >= 88 { return "circle.fill" }
-        if pct >= 63 { return "circle.bottomhalf.filled" }
-        if pct >= 38 { return "circle.lefthalf.filled" }
-        if pct >= 13 { return "circle.bottomthird.split" }
+        if remaining >= 88 { return "circle.fill" }
+        if remaining >= 63 { return "circle.bottomhalf.filled" }
+        if remaining >= 38 { return "circle.lefthalf.filled" }
+        if remaining >= 13 { return "circle.bottomthird.split" }
         return "circle"
     }
 
@@ -100,8 +102,8 @@ struct MenuBarLabel: View {
     }
 
     private var segmentsIcon: String {
-        if pct >= 60 { return "chart.bar.fill" }
-        if pct >= 30 { return "chart.bar.xaxis" }
+        if remaining >= 60 { return "chart.bar.fill" }
+        if remaining >= 30 { return "chart.bar.xaxis" }
         return "chart.bar"
     }
 
@@ -118,9 +120,9 @@ struct MenuBarLabel: View {
     }
 
     private var dualBarIcon: String {
-        if pct >= 75 { return "rectangle.fill" }
-        if pct >= 50 { return "rectangle.leadinghalf.filled" }
-        if pct >= 25 { return "rectangle.trailinghalf.filled" }
+        if remaining >= 75 { return "rectangle.fill" }
+        if remaining >= 50 { return "rectangle.leadinghalf.filled" }
+        if remaining >= 25 { return "rectangle.trailinghalf.filled" }
         return "rectangle"
     }
 
@@ -136,9 +138,9 @@ struct MenuBarLabel: View {
     }
 
     private var gaugeIcon: String {
-        if pct >= 75 { return "gauge.with.dots.needle.100percent" }
-        if pct >= 50 { return "gauge.with.dots.needle.67percent" }
-        if pct >= 25 { return "gauge.with.dots.needle.33percent" }
+        if remaining >= 75 { return "gauge.with.dots.needle.100percent" }
+        if remaining >= 50 { return "gauge.with.dots.needle.67percent" }
+        if remaining >= 25 { return "gauge.with.dots.needle.33percent" }
         return "gauge.with.dots.needle.0percent"
     }
 }
