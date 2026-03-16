@@ -171,7 +171,7 @@ struct GeneralTab: View {
                             previewRow(icon: "battery.75", text: "65%", sub: "2h 30m")
                         }
                         iconStyleCard("circular", label: "Circular") {
-                            previewRow(icon: "circle.lefthalf.filled", text: "65%", sub: "2h 30m")
+                            previewRow(icon: "circle.bottomhalf.filled", text: "65%", sub: "2h 30m")
                         }
                         iconStyleCard("minimal", label: "Minimal") {
                             Text("65% | 2h 30m")
@@ -182,7 +182,7 @@ struct GeneralTab: View {
                             previewRow(icon: "chart.bar.fill", text: "65%", sub: "2h 30m")
                         }
                         iconStyleCard("dualbar", label: "Dual Bar") {
-                            previewRow(icon: "line.3.horizontal.decrease", text: "65%", sub: "2h 30m")
+                            previewRow(icon: "rectangle.leadinghalf.filled", text: "65%", sub: "2h 30m")
                         }
                         iconStyleCard("gauge", label: "Gauge") {
                             previewRow(icon: "gauge.with.dots.needle.67percent", text: "65%", sub: "2h 30m")
