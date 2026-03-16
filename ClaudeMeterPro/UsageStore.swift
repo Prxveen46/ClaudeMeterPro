@@ -13,6 +13,8 @@ class UsageStore: ObservableObject {
     @Published var menuBarStyle: String {
         didSet {
             UserDefaults.standard.set(menuBarStyle, forKey: "menuBarStyle")
+            // Force menu bar label refresh so .id() triggers re-render
+            updateMenuBarLabel()
         }
     }
 
