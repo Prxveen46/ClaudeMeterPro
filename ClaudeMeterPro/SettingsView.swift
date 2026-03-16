@@ -167,8 +167,8 @@ struct GeneralTab: View {
                         GridItem(.flexible()),
                         GridItem(.flexible())
                     ], spacing: 10) {
-                        iconStyleCard("battery", label: "Battery") {
-                            previewRow(icon: "battery.75", text: "65%", sub: "2h 30m")
+                        iconStyleCard("battery", label: "Energy") {
+                            previewRow(icon: "bolt.fill", text: "65%", sub: "2h 30m")
                         }
                         iconStyleCard("circular", label: "Circular") {
                             previewRow(icon: "circle.bottomhalf.filled", text: "65%", sub: "2h 30m")

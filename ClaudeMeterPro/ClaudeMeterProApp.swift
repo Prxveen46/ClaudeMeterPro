@@ -48,34 +48,30 @@ struct MenuBarLabel: View {
             .font(.system(size: 12, weight: .medium, design: .monospaced))
     }
 
-    // MARK: - Battery
-    // SF Symbols: battery.0, battery.25, battery.50, battery.75, battery.100
+    // MARK: - Energy (bolt icon — represents remaining energy)
     private var batteryLabel: some View {
         HStack(spacing: 3) {
-            Image(systemName: batteryIcon)
-                .font(.system(size: 16))
-            Text("\(pct)%  \(tmr)")
+            Image(systemName: energyIcon)
+                .font(.system(size: 12))
+            Text("\(pct)% | \(tmr)")
                 .font(.system(size: 11, weight: .medium))
                 .monospacedDigit()
         }
     }
 
-    private var batteryIcon: String {
-        // remaining capacity: 14% used → 86% left → battery.75
-        if remaining >= 88 { return "battery.100" }
-        if remaining >= 63 { return "battery.75" }
-        if remaining >= 38 { return "battery.50" }
-        if remaining >= 13 { return "battery.25" }
-        return "battery.0"
+    private var energyIcon: String {
+        if remaining >= 75 { return "bolt.fill" }
+        if remaining >= 50 { return "bolt" }
+        if remaining >= 25 { return "bolt.trianglebadge.exclamationmark.fill" }
+        return "bolt.slash.fill"
     }
 
     // MARK: - Circular
-    // SF Symbols: circle.dashed, circle.bottomhalf.filled, circle.lefthalf.filled, etc.
     private var circularLabel: some View {
         HStack(spacing: 3) {
             Image(systemName: circularIcon)
                 .font(.system(size: 13))
-            Text("\(pct)%  \(tmr)")
+            Text("\(pct)% | \(tmr)")
                 .font(.system(size: 11, weight: .medium))
                 .monospacedDigit()
         }
@@ -90,12 +86,11 @@ struct MenuBarLabel: View {
     }
 
     // MARK: - Segments
-    // SF Symbols: chart.bar, chart.bar.fill
     private var segmentsLabel: some View {
         HStack(spacing: 3) {
             Image(systemName: segmentsIcon)
                 .font(.system(size: 13))
-            Text("\(pct)%  \(tmr)")
+            Text("\(pct)% | \(tmr)")
                 .font(.system(size: 11, weight: .medium))
                 .monospacedDigit()
         }
@@ -108,12 +103,11 @@ struct MenuBarLabel: View {
     }
 
     // MARK: - Dual Bar
-    // SF Symbols: line/rectangle based progress
     private var dualBarLabel: some View {
         HStack(spacing: 3) {
             Image(systemName: dualBarIcon)
                 .font(.system(size: 13))
-            Text("\(pct)%  \(tmr)")
+            Text("\(pct)% | \(tmr)")
                 .font(.system(size: 11, weight: .medium))
                 .monospacedDigit()
         }
@@ -131,7 +125,7 @@ struct MenuBarLabel: View {
         HStack(spacing: 3) {
             Image(systemName: gaugeIcon)
                 .font(.system(size: 13))
-            Text("\(pct)%  \(tmr)")
+            Text("\(pct)% | \(tmr)")
                 .font(.system(size: 11, weight: .medium))
                 .monospacedDigit()
         }
