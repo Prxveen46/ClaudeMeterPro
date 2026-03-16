@@ -172,7 +172,7 @@ struct GeneralTab: View {
                                 PreviewBattery()
                                 Text("65%")
                                     .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(.white)
                             }
                         }
                         iconStyleCard("circular", label: "Circular") {
@@ -181,7 +181,7 @@ struct GeneralTab: View {
                         iconStyleCard("minimal", label: "Minimal") {
                             Text("65%")
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(.white)
                         }
                         iconStyleCard("segments", label: "Segments") {
                             PreviewSegments()
@@ -191,13 +191,13 @@ struct GeneralTab: View {
                                 PreviewDualBar()
                                 Text("65%")
                                     .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(.white)
                             }
                         }
                         iconStyleCard("gauge", label: "Gauge") {
                             Image(systemName: "gauge.with.dots.needle.67percent")
                                 .font(.title3)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(.white)
                         }
                     }
                 }
@@ -298,23 +298,15 @@ struct PreviewBattery: View {
         HStack(spacing: 1) {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2.5)
-                    .stroke(Color.gray, lineWidth: 1)
+                    .stroke(Color.white, lineWidth: 1)
                     .frame(width: 26, height: 12)
-                HStack(spacing: 0.5) {
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(.green)
-                        .frame(width: 8, height: 9)
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(.yellow)
-                        .frame(width: 4, height: 9)
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(.orange)
-                        .frame(width: 4, height: 9)
-                }
-                .padding(.leading, 1.5)
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(Color.white)
+                    .frame(width: 16, height: 9)
+                    .padding(.leading, 1.5)
             }
             RoundedRectangle(cornerRadius: 1)
-                .fill(Color.gray)
+                .fill(Color.white)
                 .frame(width: 2, height: 6)
         }
     }
@@ -324,16 +316,16 @@ struct PreviewCircular: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.gray.opacity(0.3), lineWidth: 3)
+                .stroke(Color.white.opacity(0.25), lineWidth: 3)
                 .frame(width: 28, height: 28)
             Circle()
                 .trim(from: 0, to: 0.65)
-                .stroke(Color.orange, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .stroke(Color.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                 .frame(width: 28, height: 28)
                 .rotationEffect(.degrees(-90))
             Text("65")
                 .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(.white)
         }
     }
 }
@@ -341,34 +333,24 @@ struct PreviewCircular: View {
 struct PreviewSegments: View {
     var body: some View {
         HStack(spacing: 2.5) {
-            RoundedRectangle(cornerRadius: 1).fill(.green).frame(width: 5, height: 8)
-            RoundedRectangle(cornerRadius: 1).fill(.green).frame(width: 5, height: 12)
-            RoundedRectangle(cornerRadius: 1).fill(.yellow).frame(width: 5, height: 16)
-            RoundedRectangle(cornerRadius: 1).fill(.orange).frame(width: 5, height: 20)
-            RoundedRectangle(cornerRadius: 1).fill(Color.gray.opacity(0.3)).frame(width: 5, height: 24)
+            RoundedRectangle(cornerRadius: 1).fill(Color.white).frame(width: 5, height: 8)
+            RoundedRectangle(cornerRadius: 1).fill(Color.white).frame(width: 5, height: 12)
+            RoundedRectangle(cornerRadius: 1).fill(Color.white).frame(width: 5, height: 16)
+            RoundedRectangle(cornerRadius: 1).fill(Color.white.opacity(0.4)).frame(width: 5, height: 20)
+            RoundedRectangle(cornerRadius: 1).fill(Color.white.opacity(0.15)).frame(width: 5, height: 24)
         }
     }
 }
 
 struct PreviewDualBar: View {
     var body: some View {
-        VStack(spacing: 3) {
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 30, height: 6)
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(.orange)
-                    .frame(width: 20, height: 6)
-            }
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 30, height: 6)
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(.purple)
-                    .frame(width: 12, height: 6)
-            }
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.white.opacity(0.2))
+                .frame(width: 30, height: 7)
+            RoundedRectangle(cornerRadius: 2)
+                .fill(Color.white)
+                .frame(width: 20, height: 7)
         }
     }
 }
