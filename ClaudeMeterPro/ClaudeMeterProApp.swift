@@ -59,11 +59,13 @@ struct MenuBarLabel: View {
         }
     }
 
+    // Icons reflect usage consumed: low % = calm, high % = warning
     private var energyIcon: String {
-        if remaining >= 75 { return "bolt.fill" }
-        if remaining >= 50 { return "bolt" }
-        if remaining >= 25 { return "bolt.trianglebadge.exclamationmark.fill" }
-        return "bolt.slash.fill"
+        // 15% used = low drain, 90% used = critical
+        if pct >= 75 { return "bolt.slash.fill" }        // critical — almost depleted
+        if pct >= 50 { return "bolt.trianglebadge.exclamationmark.fill" } // warning
+        if pct >= 25 { return "bolt" }                    // moderate use
+        return "bolt.fill"                                // barely used — full energy
     }
 
     // MARK: - Circular
@@ -78,11 +80,11 @@ struct MenuBarLabel: View {
     }
 
     private var circularIcon: String {
-        if remaining >= 88 { return "circle.fill" }
-        if remaining >= 63 { return "circle.bottomhalf.filled" }
-        if remaining >= 38 { return "circle.lefthalf.filled" }
-        if remaining >= 13 { return "circle.bottomthird.split" }
-        return "circle"
+        if pct >= 75 { return "circle.fill" }             // almost full usage
+        if pct >= 50 { return "circle.bottomhalf.filled" }
+        if pct >= 25 { return "circle.lefthalf.filled" }
+        if pct > 0  { return "circle.bottomthird.split" } // small slice used
+        return "circle"                                    // nothing used
     }
 
     // MARK: - Segments
@@ -97,9 +99,9 @@ struct MenuBarLabel: View {
     }
 
     private var segmentsIcon: String {
-        if remaining >= 60 { return "chart.bar.fill" }
-        if remaining >= 30 { return "chart.bar.xaxis" }
-        return "chart.bar"
+        if pct >= 60 { return "chart.bar.fill" }          // high usage
+        if pct >= 30 { return "chart.bar.xaxis" }
+        return "chart.bar"                                 // low usage
     }
 
     // MARK: - Dual Bar
@@ -114,10 +116,10 @@ struct MenuBarLabel: View {
     }
 
     private var dualBarIcon: String {
-        if remaining >= 75 { return "rectangle.fill" }
-        if remaining >= 50 { return "rectangle.leadinghalf.filled" }
-        if remaining >= 25 { return "rectangle.trailinghalf.filled" }
-        return "rectangle"
+        if pct >= 75 { return "rectangle.fill" }           // nearly full usage
+        if pct >= 50 { return "rectangle.leadinghalf.filled" }
+        if pct >= 25 { return "rectangle.trailinghalf.filled" }
+        return "rectangle"                                  // barely used
     }
 
     // MARK: - Gauge
@@ -132,9 +134,9 @@ struct MenuBarLabel: View {
     }
 
     private var gaugeIcon: String {
-        if remaining >= 75 { return "gauge.with.dots.needle.100percent" }
-        if remaining >= 50 { return "gauge.with.dots.needle.67percent" }
-        if remaining >= 25 { return "gauge.with.dots.needle.33percent" }
-        return "gauge.with.dots.needle.0percent"
+        if pct >= 75 { return "gauge.with.dots.needle.100percent" }
+        if pct >= 50 { return "gauge.with.dots.needle.67percent" }
+        if pct >= 25 { return "gauge.with.dots.needle.33percent" }
+        return "gauge.with.dots.needle.0percent"            // needle low
     }
 }
