@@ -167,37 +167,85 @@ struct GeneralTab: View {
                         GridItem(.flexible()),
                         GridItem(.flexible())
                     ], spacing: 10) {
+                        // Battery
                         iconStyleCard("battery", label: "Battery") {
                             HStack(spacing: 4) {
                                 PreviewBattery()
-                                Text("65%")
-                                    .font(.system(size: 11, weight: .bold))
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("65%")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                    Text("2h 30m")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+                            }
+                        }
+                        // Circular
+                        iconStyleCard("circular", label: "Circular") {
+                            HStack(spacing: 4) {
+                                PreviewCircular()
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("65%")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                    Text("2h 30m")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+                            }
+                        }
+                        // Minimal
+                        iconStyleCard("minimal", label: "Minimal") {
+                            VStack(spacing: 2) {
+                                Text("65% | 2h 30m")
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
                                     .foregroundStyle(.white)
                             }
                         }
-                        iconStyleCard("circular", label: "Circular") {
-                            PreviewCircular()
-                        }
-                        iconStyleCard("minimal", label: "Minimal") {
-                            Text("65%")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
+                        // Segments
                         iconStyleCard("segments", label: "Segments") {
-                            PreviewSegments()
+                            HStack(spacing: 4) {
+                                PreviewSegments()
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("65%")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                    Text("2h 30m")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+                            }
                         }
+                        // Dual Bar
                         iconStyleCard("dualbar", label: "Dual Bar") {
                             HStack(spacing: 4) {
                                 PreviewDualBar()
-                                Text("65%")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundStyle(.white)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("65%")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                    Text("2h 30m")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
                             }
                         }
+                        // Gauge
                         iconStyleCard("gauge", label: "Gauge") {
-                            Image(systemName: "gauge.with.dots.needle.67percent")
-                                .font(.title3)
-                                .foregroundStyle(.white)
+                            HStack(spacing: 4) {
+                                Image(systemName: "gauge.with.dots.needle.67percent")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.white)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("65%")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white)
+                                    Text("2h 30m")
+                                        .font(.system(size: 8))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+                            }
                         }
                     }
                 }
@@ -214,7 +262,7 @@ struct GeneralTab: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .toggleStyle(.switch)
+                .tint(.blue)
             }
         }
         .padding(20)
@@ -299,15 +347,15 @@ struct PreviewBattery: View {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 2.5)
                     .stroke(Color.white, lineWidth: 1)
-                    .frame(width: 26, height: 12)
+                    .frame(width: 28, height: 13)
                 RoundedRectangle(cornerRadius: 1.5)
                     .fill(Color.white)
-                    .frame(width: 16, height: 9)
+                    .frame(width: 17, height: 10) // ~65% of 26
                     .padding(.leading, 1.5)
             }
             RoundedRectangle(cornerRadius: 1)
                 .fill(Color.white)
-                .frame(width: 2, height: 6)
+                .frame(width: 2.5, height: 6)
         }
     }
 }
@@ -316,15 +364,15 @@ struct PreviewCircular: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.white.opacity(0.25), lineWidth: 3)
-                .frame(width: 28, height: 28)
+                .stroke(Color.white.opacity(0.2), lineWidth: 3.5)
+                .frame(width: 30, height: 30)
             Circle()
                 .trim(from: 0, to: 0.65)
-                .stroke(Color.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                .frame(width: 28, height: 28)
+                .stroke(Color.white, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                .frame(width: 30, height: 30)
                 .rotationEffect(.degrees(-90))
             Text("65")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 10, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
         }
     }
@@ -332,12 +380,13 @@ struct PreviewCircular: View {
 
 struct PreviewSegments: View {
     var body: some View {
-        HStack(spacing: 2.5) {
-            RoundedRectangle(cornerRadius: 1).fill(Color.white).frame(width: 5, height: 8)
-            RoundedRectangle(cornerRadius: 1).fill(Color.white).frame(width: 5, height: 12)
-            RoundedRectangle(cornerRadius: 1).fill(Color.white).frame(width: 5, height: 16)
-            RoundedRectangle(cornerRadius: 1).fill(Color.white.opacity(0.4)).frame(width: 5, height: 20)
-            RoundedRectangle(cornerRadius: 1).fill(Color.white.opacity(0.15)).frame(width: 5, height: 24)
+        HStack(spacing: 3) {
+            // 65% = ~3.25 segments filled out of 5
+            RoundedRectangle(cornerRadius: 1.5).fill(Color.white).frame(width: 6, height: 10)
+            RoundedRectangle(cornerRadius: 1.5).fill(Color.white).frame(width: 6, height: 15)
+            RoundedRectangle(cornerRadius: 1.5).fill(Color.white).frame(width: 6, height: 20)
+            RoundedRectangle(cornerRadius: 1.5).fill(Color.white.opacity(0.2)).frame(width: 6, height: 25)
+            RoundedRectangle(cornerRadius: 1.5).fill(Color.white.opacity(0.2)).frame(width: 6, height: 30)
         }
     }
 }
@@ -345,12 +394,12 @@ struct PreviewSegments: View {
 struct PreviewDualBar: View {
     var body: some View {
         ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 2)
+            RoundedRectangle(cornerRadius: 3)
                 .fill(Color.white.opacity(0.2))
-                .frame(width: 30, height: 7)
-            RoundedRectangle(cornerRadius: 2)
+                .frame(width: 36, height: 8)
+            RoundedRectangle(cornerRadius: 3)
                 .fill(Color.white)
-                .frame(width: 20, height: 7)
+                .frame(width: 23, height: 8) // ~65%
         }
     }
 }
