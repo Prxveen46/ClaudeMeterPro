@@ -3,9 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var usageStore: UsageStore
 
-    // Local countdown timer — only ticks while popover is visible
-    @State private var countdownText: String = "--"
-    @State private var countdownTimer: Timer?
+    @State private var animatedPercent: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,25 +15,39 @@ struct ContentView: View {
                 mainView
             }
         }
-        .frame(width: 260)
-        .onAppear { startCountdown() }
-        .onDisappear { stopCountdown() }
+        .frame(width: 280)
+        .onAppear { usageStore.startCountdown() }
+        .onDisappear { usageStore.stopCountdown() }
     }
 
     // MARK: - Setup
 
     private var setupView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("ClaudeMeter Pro")
-                .font(.headline)
-            Text("Set up your session key to get started.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(spacing: 16) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(ClaudeTheme.amber.opacity(0.15))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(ClaudeTheme.amber)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ClaudeMeter Pro")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Set up your session key to get started.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Button("Open Settings") {
                 SettingsWindowController.shared.open(usageStore: usageStore)
             }
             .buttonStyle(.borderedProminent)
+            .tint(ClaudeTheme.amber)
             .controlSize(.regular)
 
             Divider()
@@ -47,18 +59,32 @@ struct ContentView: View {
     // MARK: - Error
 
     private func errorView(_ error: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Error", systemImage: "exclamationmark.triangle.fill")
-                .font(.headline)
-                .foregroundStyle(.red)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(Color.red.opacity(0.12))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.red)
+                }
+                Text("Connection Error")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+
             Text(error)
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
+                .lineLimit(3)
+
             Button("Retry") {
                 Task { await usageStore.fetchUsage() }
             }
             .buttonStyle(.borderedProminent)
+            .tint(ClaudeTheme.amber)
             .controlSize(.small)
+
             Divider()
             quitButton
         }
@@ -70,123 +96,154 @@ struct ContentView: View {
     private var mainView: some View {
         VStack(spacing: 0) {
             if let info = usageStore.usageInfo {
-                VStack(spacing: 12) {
-                    // Big percentage + reset timer
+                VStack(spacing: 14) {
                     HStack(alignment: .firstTextBaseline) {
                         Text("\(info.sessionPercentInt)")
-                            .font(.system(size: 42, weight: .bold, design: .rounded))
+                            .font(.system(size: 44, weight: .bold, design: .rounded))
                             .monospacedDigit()
-                            .foregroundStyle(percentColor(info.sessionPercentInt))
+                            .foregroundStyle(ClaudeTheme.usageColor(percent: info.sessionPercentInt))
                         Text("%")
-                            .font(.system(size: 20, weight: .medium, design: .rounded))
-                            .foregroundStyle(percentColor(info.sessionPercentInt).opacity(0.6))
+                            .font(.system(size: 18, weight: .medium, design: .rounded))
+                            .foregroundStyle(ClaudeTheme.usageColor(percent: info.sessionPercentInt).opacity(0.5))
                         Spacer()
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text("resets in")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                            Text(countdownText)
-                                .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                        }
+                        countdownBadge
                     }
 
-                    // Progress bar
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 5)
-                                .fill(Color.gray.opacity(0.15))
-                            RoundedRectangle(cornerRadius: 5)
-                                .fill(barGradient(percent: info.sessionPercentInt))
-                                .frame(width: max(0, geo.size.width * CGFloat(info.sessionPercentInt) / 100))
-                        }
-                    }
-                    .frame(height: 10)
+                    progressBar(percent: info.sessionPercentInt)
 
                     Text("5-hour session usage")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(16)
+                .onAppear {
+                    withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
+                        animatedPercent = CGFloat(info.sessionPercentInt)
+                    }
+                }
+                .onChange(of: info.sessionPercentInt) { newVal in
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        animatedPercent = CGFloat(newVal)
+                    }
+                }
             } else if usageStore.isLoading {
                 HStack(spacing: 8) {
                     ProgressView()
                         .controlSize(.small)
                     Text("Connecting...")
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
-                .padding(16)
+                .padding(20)
             }
 
             Divider()
 
-            // Bottom bar
-            HStack {
-                Button {
+            HStack(spacing: 0) {
+                ToolbarButton(icon: "gearshape", label: "Settings") {
                     SettingsWindowController.shared.open(usageStore: usageStore)
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "gearshape")
-                        Text("Settings")
-                    }
-                    .font(.caption)
                 }
-                .buttonStyle(.borderless)
-
                 Spacer()
-
-                quitButton
+                ToolbarButton(icon: "arrow.clockwise", label: "Refresh") {
+                    Task { await usageStore.fetchUsage() }
+                }
+                .opacity(usageStore.isLoading ? 0.4 : 1)
+                .disabled(usageStore.isLoading)
+                Spacer()
+                ToolbarButton(icon: "power", label: "Quit") {
+                    NSApplication.shared.terminate(nil)
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
     }
 
-    // MARK: - Countdown (only when visible)
+    // MARK: - Countdown Badge
 
-    private func startCountdown() {
-        updateCountdownText()
-        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            Task { @MainActor in
-                updateCountdownText()
-                usageStore.updateMenuBarLabel()
-            }
+    private var countdownBadge: some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            Text("RESETS IN")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .tracking(0.5)
+
+            Text(usageStore.countdownText)
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundStyle(.secondary)
         }
     }
 
-    private func stopCountdown() {
-        countdownTimer?.invalidate()
-        countdownTimer = nil
+    // MARK: - Progress Bar
+
+    private func progressBar(percent: Int) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.gray.opacity(0.1))
+
+                Capsule()
+                    .fill(ClaudeTheme.usageGradient(percent: percent))
+                    .frame(width: max(0, geo.size.width * animatedPercent / 100))
+                    .shadow(
+                        color: ClaudeTheme.usageColor(percent: percent).opacity(0.45),
+                        radius: 6, x: 0, y: 0
+                    )
+
+                if animatedPercent > 2 {
+                    Circle()
+                        .fill(Color.white.opacity(0.6))
+                        .frame(width: 6, height: 6)
+                        .blur(radius: 2)
+                        .offset(x: max(0, geo.size.width * animatedPercent / 100 - 6))
+                }
+            }
+        }
+        .frame(height: 8)
     }
 
-    private func updateCountdownText() {
-        countdownText = usageStore.formatCountdown(usageStore.resetSecondsRemaining)
-    }
-
-    // MARK: - Helpers
-
-    private func percentColor(_ percent: Int) -> Color {
-        if percent >= 90 { return .red }
-        return .primary
-    }
-
-    private func barGradient(percent: Int) -> LinearGradient {
-        let color: Color = percent >= 90 ? .red : percent >= 70 ? .orange : .blue
-        return LinearGradient(
-            colors: [color.opacity(0.8), color],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-    }
+    // MARK: - Quit
 
     private var quitButton: some View {
-        Button("Quit") {
+        ToolbarButton(icon: "power", label: "Quit") {
             NSApplication.shared.terminate(nil)
         }
-        .font(.caption)
-        .buttonStyle(.borderless)
-        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+}
+
+// MARK: - Toolbar Button with Hover
+
+struct ToolbarButton: View {
+    let icon: String
+    let label: String
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .medium))
+                Text(label)
+                    .font(.system(size: 11))
+            }
+            .foregroundStyle(isHovered ? .primary : .secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(isHovered ? Color.gray.opacity(0.12) : Color.clear)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
     }
 }

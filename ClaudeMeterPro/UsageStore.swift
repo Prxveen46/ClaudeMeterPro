@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import ServiceManagement
 
 @MainActor
 class UsageStore: ObservableObject {
@@ -35,11 +34,21 @@ class UsageStore: ObservableObject {
     // Absolute reset date — countdown computed on demand, no persistent timer
     var sessionResetDate: Date? { usageInfo?.sessionResetDate }
 
+    /// Live countdown text, ticked every second by a dedicated timer.
+    @Published var countdownText: String = "--"
+
     private let webClient = ClaudeWebClient()
     private var pollTimer: Timer?
+    private var countdownTimer: Timer?
 
     // Track last label to avoid unnecessary SwiftUI updates
     private var lastComputedLabel: String = "—"
+
+    private static let resetTimeFmt: DateFormatter = {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "h:mm a"
+        return fmt
+    }()
 
     init() {
         let saved = UserDefaults.standard.double(forKey: "refreshInterval")
@@ -118,6 +127,17 @@ class UsageStore: ObservableObject {
         return max(0, date.timeIntervalSinceNow)
     }
 
+    /// Absolute reset time formatted as "2:30 PM" — shown when usage hits 100%.
+    var resetTimeFormatted: String? {
+        guard let date = sessionResetDate, date.timeIntervalSinceNow > 0 else { return nil }
+        return Self.resetTimeFmt.string(from: date)
+    }
+
+    /// Whether usage is fully exhausted.
+    var isExhausted: Bool {
+        (usageInfo?.sessionPercentInt ?? 0) >= 100
+    }
+
     // MARK: - Polling
 
     private func startPolling() {
@@ -126,7 +146,7 @@ class UsageStore: ObservableObject {
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
-            Task { @MainActor in await self.fetchUsage() }
+            Task { await self.fetchUsage() }
         }
     }
 
@@ -137,23 +157,63 @@ class UsageStore: ObservableObject {
 
     private func restartPolling() {
         guard hasSessionKey else { return }
-        // Don't re-fetch immediately on interval change — next poll will use new interval
         stopPolling()
         pollTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
             guard let self else { return }
-            Task { @MainActor in await self.fetchUsage() }
+            Task { await self.fetchUsage() }
         }
     }
 
-    // MARK: - Formatting
+    // MARK: - Countdown (1-second tick for live display)
 
-    // MARK: - Login Item
+    func startCountdown() {
+        stopCountdown()
+        tickCountdown()
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.tickCountdown() }
+        }
+    }
+
+    func stopCountdown() {
+        countdownTimer?.invalidate()
+        countdownTimer = nil
+    }
+
+    private func tickCountdown() {
+        countdownText = formatCountdown(resetSecondsRemaining)
+        updateMenuBarLabel()
+    }
+
+    // MARK: - Login Item (LaunchAgent plist)
+
+    private static let launchAgentLabel = "com.claudemeter.pro"
+    private static var launchAgentURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents/\(launchAgentLabel).plist")
+    }
 
     private func updateLoginItem() {
+        let plistURL = Self.launchAgentURL
         if launchAtLogin {
-            try? SMAppService.mainApp.register()
+            // Resolve the current executable path
+            let execPath = ProcessInfo.processInfo.arguments.first
+                ?? Bundle.main.executablePath
+                ?? "/usr/local/bin/ClaudeMeterPro"
+
+            let plist: [String: Any] = [
+                "Label": Self.launchAgentLabel,
+                "ProgramArguments": [execPath],
+                "RunAtLoad": true,
+                "KeepAlive": false,
+            ]
+
+            let data = try? PropertyListSerialization.data(
+                fromPropertyList: plist, format: .xml, options: 0
+            )
+            FileManager.default.createFile(atPath: plistURL.path, contents: data)
         } else {
-            try? SMAppService.mainApp.unregister()
+            try? FileManager.default.removeItem(at: plistURL)
         }
     }
 

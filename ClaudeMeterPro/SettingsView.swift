@@ -8,15 +8,17 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 24) {
+            // Tab bar
+            HStack(spacing: 0) {
                 ForEach(SettingsTab.allCases) { tab in
                     tabButton(tab)
                 }
             }
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            .padding(.top, 10)
+            .padding(.horizontal, 16)
 
             Divider()
+                .padding(.top, 8)
 
             ScrollView {
                 switch selectedTab {
@@ -27,22 +29,28 @@ struct SettingsView: View {
                 }
             }
         }
-        .frame(width: 520, height: 580)
+        .frame(width: 520, height: 600)
     }
 
     private func tabButton(_ tab: SettingsTab) -> some View {
         Button {
-            selectedTab = tab
-        } label: {
-            VStack(spacing: 4) {
-                Image(systemName: tab.icon)
-                    .font(.title2)
-                    .frame(height: 24)
-                Text(tab.title)
-                    .font(.caption)
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedTab = tab
             }
-            .foregroundStyle(selectedTab == tab ? .blue : .secondary)
-            .frame(width: 70)
+        } label: {
+            VStack(spacing: 5) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 20, weight: .medium))
+                    .frame(height: 22)
+                Text(tab.title)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(selectedTab == tab ? ClaudeTheme.amber : .secondary)
+            .frame(width: 80, height: 48)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(selectedTab == tab ? ClaudeTheme.amber.opacity(0.08) : Color.clear)
+            )
         }
         .buttonStyle(.plain)
     }
@@ -70,17 +78,14 @@ struct GeneralTab: View {
     @State private var isValidating = false
     @State private var validationMessage: String?
 
-    // Use usageStore.menuBarStyle and usageStore.launchAtLogin directly
-
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             // Session Key
             settingsCard {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Session Key")
-                        .font(.headline)
+                    cardHeader(title: "Session Key", icon: "key.fill")
                     Text("Your Claude.ai session key authenticates API requests. Find this in your browser's cookies.")
-                        .font(.caption)
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 8) {
@@ -97,7 +102,9 @@ struct GeneralTab: View {
                             showKey.toggle()
                         } label: {
                             Image(systemName: showKey ? "eye.slash" : "eye")
-                                .frame(width: 20)
+                                .font(.system(size: 12))
+                                .frame(width: 24, height: 24)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
 
@@ -105,17 +112,20 @@ struct GeneralTab: View {
                             sessionKeyText = ""
                         } label: {
                             Image(systemName: "xmark.circle")
-                                .frame(width: 20)
+                                .font(.system(size: 12))
+                                .frame(width: 24, height: 24)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
                         .disabled(sessionKeyText.isEmpty)
                     }
 
-                    HStack {
+                    HStack(spacing: 8) {
                         Button("Validate & Save") {
                             validateAndSave()
                         }
                         .buttonStyle(.borderedProminent)
+                        .tint(ClaudeTheme.amber)
                         .disabled(sessionKeyText.isEmpty || isValidating)
 
                         if isValidating {
@@ -125,7 +135,7 @@ struct GeneralTab: View {
 
                         if let msg = validationMessage {
                             Text(msg)
-                                .font(.caption)
+                                .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(msg.contains("✓") ? .green : .red)
                         }
                     }
@@ -135,58 +145,42 @@ struct GeneralTab: View {
             // Refresh Interval
             settingsCard {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Refresh Interval")
-                            .font(.headline)
-                        Text("How often to check your usage data")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    cardHeader(title: "Refresh Interval", icon: "clock.arrow.2.circlepath")
                     Spacer()
                     Picker("", selection: $usageStore.refreshInterval) {
-                        Text("1 minute").tag(60.0)
-                        Text("2 minutes").tag(120.0)
-                        Text("5 minutes").tag(300.0)
-                        Text("10 minutes").tag(600.0)
+                        Text("1 min").tag(60.0)
+                        Text("2 min").tag(120.0)
+                        Text("5 min").tag(300.0)
+                        Text("10 min").tag(600.0)
                     }
-                    .frame(width: 140)
+                    .frame(width: 120)
                 }
             }
 
             // Menu Bar Icon Style
             settingsCard {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Menu Bar Icon Style")
-                        .font(.headline)
-                    Text("Choose how the usage indicator appears in your menu bar")
-                        .font(.caption)
+                    cardHeader(title: "Menu Bar Style", icon: "menubar.rectangle")
+                    Text("Choose how usage appears in your menu bar")
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
 
                     LazyVGrid(columns: [
                         GridItem(.flexible()),
                         GridItem(.flexible()),
                         GridItem(.flexible())
-                    ], spacing: 10) {
-                        iconStyleCard("battery", label: "Energy") {
-                            previewRow(icon: "bolt.fill", text: "65%", sub: "2h 30m")
-                        }
-                        iconStyleCard("circular", label: "Circular") {
-                            previewRow(icon: "circle.bottomhalf.filled", text: "65%", sub: "2h 30m")
-                        }
-                        iconStyleCard("minimal", label: "Minimal") {
-                            Text("65% | 2h 30m")
-                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(.white)
-                        }
-                        iconStyleCard("segments", label: "Segments") {
-                            previewRow(icon: "chart.bar.fill", text: "65%", sub: "2h 30m")
-                        }
-                        iconStyleCard("dualbar", label: "Dual Bar") {
-                            previewRow(icon: "rectangle.leadinghalf.filled", text: "65%", sub: "2h 30m")
-                        }
-                        iconStyleCard("gauge", label: "Gauge") {
-                            previewRow(icon: "gauge.with.dots.needle.67percent", text: "65%", sub: "2h 30m")
-                        }
+                    ], spacing: 8) {
+                        // New styles
+                        ringStyleCard
+                        pillStyleCard
+                        dotStyleCard
+                        // Classic styles
+                        iconStyleCard("battery", label: "Energy", icon: "bolt.fill", text: "65% | 2h 30m")
+                        iconStyleCard("circular", label: "Circular", icon: "circle.bottomhalf.filled", text: "65% | 2h 30m")
+                        iconStyleCard("minimal", label: "Minimal", icon: nil, text: "65% | 2h 30m")
+                        iconStyleCard("segments", label: "Segments", icon: "chart.bar.fill", text: "65% | 2h 30m")
+                        iconStyleCard("dualbar", label: "Dual Bar", icon: "rectangle.leadinghalf.filled", text: "65% | 2h 30m")
+                        iconStyleCard("gauge", label: "Gauge", icon: "gauge.with.dots.needle.67percent", text: "65% | 2h 30m")
                     }
                 }
             }
@@ -194,24 +188,28 @@ struct GeneralTab: View {
             // Launch at Login
             settingsCard {
                 Toggle(isOn: $usageStore.launchAtLogin) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Start at Login")
-                            .font(.headline)
-                        Text("Automatically launch ClaudeMeter Pro when you log in")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    cardHeader(title: "Start at Login", icon: "sunrise.fill")
                 }
-                .tint(.blue)
+                .tint(ClaudeTheme.amber)
             }
         }
-        .padding(20)
+        .padding(18)
         .onAppear {
             sessionKeyText = KeychainHelper.load() ?? ""
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Card Components
+
+    private func cardHeader(title: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(ClaudeTheme.amber)
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+        }
+    }
 
     private func validateAndSave() {
         isValidating = true
@@ -219,10 +217,7 @@ struct GeneralTab: View {
         usageStore.setSessionKey(sessionKeyText)
 
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            while usageStore.isLoading {
-                try? await Task.sleep(nanoseconds: 200_000_000)
-            }
+            await usageStore.fetchUsage()
             isValidating = false
             if usageStore.usageInfo != nil {
                 validationMessage = "✓ Connected successfully"
@@ -232,21 +227,112 @@ struct GeneralTab: View {
         }
     }
 
-    private func previewRow(icon: String, text: String, sub: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundStyle(.white)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(text)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.white)
-                Text(sub)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.45))
+    // MARK: - New Style Preview Cards
+
+    private var ringStyleCard: some View {
+        styleCard("ring", label: "Ring") {
+            HStack(spacing: 4) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 2)
+                        .frame(width: 16, height: 16)
+                    Circle()
+                        .trim(from: 0, to: 0.65)
+                        .stroke(ClaudeTheme.amber, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                        .frame(width: 16, height: 16)
+                        .rotationEffect(.degrees(-90))
+                }
+                Text("2h 30m")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.85))
             }
         }
+    }
+
+    private var pillStyleCard: some View {
+        styleCard("pill", label: "Pill") {
+            HStack(spacing: 4) {
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 24, height: 8)
+                    Capsule()
+                        .fill(ClaudeTheme.amber)
+                        .frame(width: 16, height: 8)
+                }
+                Text("65%")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.85))
+            }
+        }
+    }
+
+    private var dotStyleCard: some View {
+        styleCard("dot", label: "Pulse") {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(ClaudeTheme.amber)
+                    .frame(width: 8, height: 8)
+                Text("65%")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.85))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func styleCard<Content: View>(
+        _ style: String,
+        label: String,
+        @ViewBuilder preview: () -> Content
+    ) -> some View {
+        let isSelected = usageStore.menuBarStyle == style
+        Button {
+            usageStore.menuBarStyle = style
+        } label: {
+            VStack(spacing: 6) {
+                HStack(spacing: 0) {
+                    Spacer()
+                    preview()
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.gray.opacity(isSelected ? 0.18 : 0.08))
+                        )
+                    Spacer()
+                }
+                .frame(height: 28)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color(nsColor: .windowBackgroundColor).opacity(0.6))
+                )
+
+                HStack(spacing: 3) {
+                    Text(label)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(isSelected ? ClaudeTheme.amber : .secondary)
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(ClaudeTheme.amber)
+                    }
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(7)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isSelected ? ClaudeTheme.amber.opacity(0.06) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(
+                    isSelected ? ClaudeTheme.amber.opacity(0.5) : Color.gray.opacity(0.15),
+                    lineWidth: isSelected ? 1.5 : 0.5
+                )
+        )
     }
 
     private func settingsCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -255,81 +341,243 @@ struct GeneralTab: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.gray.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+                .shadow(color: Color.black.opacity(0.04), radius: 2, y: 1)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.gray.opacity(0.1), lineWidth: 0.5)
+        )
     }
 
+    // MARK: - Icon Style Card (menu bar simulation)
+
     @ViewBuilder
-    private func iconStyleCard<Content: View>(
+    private func iconStyleCard(
         _ style: String,
         label: String,
-        @ViewBuilder preview: () -> Content
+        icon: String?,
+        text: String
     ) -> some View {
+        let isSelected = usageStore.menuBarStyle == style
         Button {
             usageStore.menuBarStyle = style
         } label: {
             VStack(spacing: 6) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(usageStore.menuBarStyle == style ? Color.blue.opacity(0.08) : Color.gray.opacity(0.1))
-                        .frame(height: 40)
-                    preview()
+                // Mini menu bar simulation
+                HStack(spacing: 0) {
+                    Spacer()
+                    HStack(spacing: 3) {
+                        if let icon {
+                            Image(systemName: icon)
+                                .font(.system(size: 10))
+                        }
+                        Text(text)
+                            .font(.system(size: 8.5, weight: .medium, design: icon == nil ? .monospaced : .default))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(.primary.opacity(0.85))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.gray.opacity(isSelected ? 0.18 : 0.08))
+                    )
+                    Spacer()
                 }
-                HStack(spacing: 4) {
+                .frame(height: 28)
+                .background(
+                    // Menu bar strip
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color(nsColor: .windowBackgroundColor).opacity(0.6))
+                )
+
+                HStack(spacing: 3) {
                     Text(label)
-                        .font(.caption2)
-                        .foregroundStyle(usageStore.menuBarStyle == style ? .blue : .secondary)
-                    if usageStore.menuBarStyle == style {
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(isSelected ? ClaudeTheme.amber : .secondary)
+                    if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
+                            .font(.system(size: 9))
+                            .foregroundStyle(ClaudeTheme.amber)
                     }
                 }
             }
         }
         .buttonStyle(.plain)
-        .padding(8)
+        .padding(7)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isSelected ? ClaudeTheme.amber.opacity(0.06) : Color.clear)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(usageStore.menuBarStyle == style ? Color.blue : Color.gray.opacity(0.2), lineWidth: usageStore.menuBarStyle == style ? 2 : 1)
+                .stroke(
+                    isSelected ? ClaudeTheme.amber.opacity(0.5) : Color.gray.opacity(0.15),
+                    lineWidth: isSelected ? 1.5 : 0.5
+                )
         )
     }
 }
 
-// MARK: - Settings Preview Components (larger, styled versions for the picker)
-
 // MARK: - About Tab
 
 struct AboutTab: View {
+    @State private var glowPhase: Double = 0
+
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
             Spacer()
 
-            Image(systemName: "chart.bar.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(.blue)
+            // Branded icon with radial glow
+            ZStack {
+                // Ambient glow
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                ClaudeTheme.amber.opacity(0.2),
+                                ClaudeTheme.amber.opacity(0.05),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 80
+                        )
+                    )
+                    .frame(width: 160, height: 160)
+
+                // Icon background
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [ClaudeTheme.amberLight, ClaudeTheme.amber],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 64, height: 64)
+                    .shadow(color: ClaudeTheme.amber.opacity(0.3), radius: 12, y: 4)
+
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
 
             Text("ClaudeMeter Pro")
-                .font(.title2.bold())
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .padding(.top, 4)
 
             Text("v1.0.0")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(.tertiary)
+                .padding(.top, 2)
 
-            Text("A lightweight menu bar app to track\nyour Claude.ai session usage.")
-                .font(.body)
+            Text("Track your Claude.ai session usage\nright from the menu bar.")
+                .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .lineSpacing(2)
+                .padding(.top, 12)
 
-            Spacer()
+            // Divider with brand color
+            HStack(spacing: 8) {
+                Rectangle()
+                    .fill(ClaudeTheme.amber.opacity(0.2))
+                    .frame(height: 1)
+                Circle()
+                    .fill(ClaudeTheme.amber.opacity(0.3))
+                    .frame(width: 4, height: 4)
+                Rectangle()
+                    .fill(ClaudeTheme.amber.opacity(0.2))
+                    .frame(height: 1)
+            }
+            .frame(width: 120)
+            .padding(.vertical, 20)
 
-            Text("Built with SwiftUI")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            Link(destination: URL(string: "https://github.com/Prxveen46/ClaudeMeterPro")!) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("View on GitHub")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.gray.opacity(0.08))
+                )
+            }
+            .buttonStyle(.plain)
+
+            SparkleText(text: "Built by Prxveen.work")
+                .padding(.top, 10)
 
             Spacer()
         }
         .padding(20)
+    }
+}
+
+// MARK: - Sparkle Hover Text
+
+struct SparkleText: View {
+    let text: String
+
+    @State private var isHovered = false
+    @State private var sparkles: [(id: Int, x: CGFloat, y: CGFloat, delay: Double)] = []
+
+    var body: some View {
+        ZStack {
+            // Sparkle particles
+            ForEach(sparkles, id: \.id) { sparkle in
+                Image(systemName: "sparkle")
+                    .font(.system(size: CGFloat.random(in: 6...10)))
+                    .foregroundStyle(ClaudeTheme.amber)
+                    .offset(x: sparkle.x, y: sparkle.y)
+                    .opacity(isHovered ? 1 : 0)
+                    .scaleEffect(isHovered ? 1 : 0.2)
+                    .animation(
+                        .easeOut(duration: 0.5)
+                        .delay(sparkle.delay)
+                        .repeatForever(autoreverses: true),
+                        value: isHovered
+                    )
+            }
+
+            Text(text)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(
+                    isHovered
+                        ? AnyShapeStyle(ClaudeTheme.amber)
+                        : AnyShapeStyle(.tertiary)
+                )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                isHovered = hovering
+            }
+        }
+        .onAppear {
+            // Pre-generate sparkle positions around the text
+            sparkles = (0..<8).map { i in
+                let angle = Double(i) / 8.0 * .pi * 2
+                let radius: CGFloat = CGFloat.random(in: 30...55)
+                return (
+                    id: i,
+                    x: cos(angle) * radius,
+                    y: sin(angle) * radius,
+                    delay: Double(i) * 0.07
+                )
+            }
+        }
     }
 }
 
@@ -343,7 +591,7 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
         // If window already exists, just bring it forward
         if let window = window {
             window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            Self.activateApp()
             return
         }
 
@@ -351,7 +599,7 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
         let hosting = NSHostingView(rootView: settingsView)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 580),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 600),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -361,14 +609,21 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
         window.center()
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.level = .floating  // Ensure it appears above the menu bar popover
+        window.level = .normal
 
         self.window = window
 
-        // Activate the app so the window can receive focus
         NSApp.setActivationPolicy(.accessory)
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        Self.activateApp()
+    }
+
+    private static func activateApp() {
+        if #available(macOS 14.0, *) {
+            NSApp.activate()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     func windowWillClose(_ notification: Notification) {
