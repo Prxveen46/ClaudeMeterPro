@@ -37,7 +37,7 @@ class UsageStore: ObservableObject {
     /// Live countdown text, ticked every second by a dedicated timer.
     @Published var countdownText: String = "--"
 
-    private let webClient = ClaudeWebClient()
+    private let webClient = ClaudeAPIClient()
     private var pollTimer: Timer?
     private var countdownTimer: Timer?
 
@@ -77,6 +77,7 @@ class UsageStore: ObservableObject {
         hasSessionKey = false
         usageInfo = nil
         lastError = nil
+        webClient.resetReadyState()
         stopPolling()
         updateMenuBarLabel()
     }
@@ -139,6 +140,12 @@ class UsageStore: ObservableObject {
     }
 
     // MARK: - Polling
+
+    /// Called by SettingsView after validation succeeds.
+    func startPollingIfNeeded() {
+        guard hasSessionKey, pollTimer == nil else { return }
+        startPolling()
+    }
 
     private func startPolling() {
         stopPolling()

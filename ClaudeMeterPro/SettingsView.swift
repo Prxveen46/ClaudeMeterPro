@@ -84,16 +84,16 @@ struct GeneralTab: View {
             settingsCard {
                 VStack(alignment: .leading, spacing: 8) {
                     cardHeader(title: "Session Key", icon: "key.fill")
-                    Text("Your Claude.ai session key authenticates API requests. Find this in your browser's cookies.")
+                    Text("Your claude.ai session key. Copy it from browser cookies at claude.ai.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 8) {
                         Group {
                             if showKey {
-                                TextField("sk-ant-sid...", text: $sessionKeyText)
+                                TextField("Paste session key...", text: $sessionKeyText)
                             } else {
-                                SecureField("sk-ant-sid...", text: $sessionKeyText)
+                                SecureField("Paste session key...", text: $sessionKeyText)
                             }
                         }
                         .textFieldStyle(.roundedBorder)
@@ -214,13 +214,18 @@ struct GeneralTab: View {
     private func validateAndSave() {
         isValidating = true
         validationMessage = nil
-        usageStore.setSessionKey(sessionKeyText)
+
+        // Save key without starting polling — we'll validate first
+        let success = KeychainHelper.save(apiKey: sessionKeyText)
+        usageStore.hasSessionKey = success && !sessionKeyText.isEmpty
 
         Task {
             await usageStore.fetchUsage()
             isValidating = false
             if usageStore.usageInfo != nil {
                 validationMessage = "✓ Connected successfully"
+                // Only start polling after confirmed working
+                usageStore.startPollingIfNeeded()
             } else {
                 validationMessage = "✗ \(usageStore.lastError ?? "Connection failed")"
             }
