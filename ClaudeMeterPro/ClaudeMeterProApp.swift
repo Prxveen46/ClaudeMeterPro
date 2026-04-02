@@ -38,7 +38,7 @@ struct ClaudeMeterProApp: App {
 struct MenuBarLabel: View {
     @ObservedObject var store: UsageStore
 
-    private var pct: Int { store.usageInfo?.sessionPercentInt ?? 0 }
+    private var pct: Int { store.usageInfo?.usagePercentInt ?? 0 }
     private var hasData: Bool { store.usageInfo != nil }
 
     private var timeDisplay: String {
@@ -53,6 +53,8 @@ struct MenuBarLabel: View {
     var body: some View {
         if !store.hasSessionKey {
             Label("Setup", systemImage: "exclamationmark.triangle")
+        } else if !hasData && store.isLoading {
+            Text("...").monospacedDigit()
         } else if !hasData {
             Text(store.menuBarLabel).monospacedDigit()
         } else if store.isExhausted {

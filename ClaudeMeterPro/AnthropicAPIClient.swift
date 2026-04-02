@@ -10,7 +10,7 @@ struct UsageInfo {
     let sessionPercent: Double       // 0.0 - 1.0
     let sessionResetDate: Date?      // absolute reset time
 
-    var sessionPercentInt: Int { min(100, Int(sessionPercent * 100)) }
+    var usagePercentInt: Int { min(100, Int(sessionPercent * 100)) }
 }
 
 enum APIError: Error, LocalizedError {
@@ -25,7 +25,7 @@ enum APIError: Error, LocalizedError {
         switch self {
         case .noSessionKey: return "No session key configured"
         case .invalidResponse: return "Invalid response"
-        case .cloudflareBlocked: return "Cloudflare blocked — open claude.ai in Safari first, then retry"
+        case .cloudflareBlocked: return "Cloudflare blocked — open claude.ai in Safari, then retry"
         case .httpError(let code, let detail): return "HTTP \(code): \(detail)"
         case .parseError(let msg): return msg
         case .networkError(let err): return err.localizedDescription
@@ -33,26 +33,20 @@ enum APIError: Error, LocalizedError {
     }
 }
 
-// MARK: - Direct URLSession Client (primary, fast path)
+// MARK: - WebView-based Client
 
+/// Uses WKWebView to bypass Cloudflare, then runs fetch() inside the WebView context.
+/// The WebView must be in a real (off-screen) window with a proper style mask so macOS
+/// doesn't throttle JavaScript execution.
 @MainActor
 class ClaudeAPIClient: NSObject {
-    private let session: URLSession
     private let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3 Safari/605.1.15"
 
-    // WebView fallback for Cloudflare challenges
     private var webView: WKWebView?
     private var hiddenWindow: NSWindow?
     private var webViewReady = false
     private var navigationContinuation: CheckedContinuation<Void, Error>?
-
-    override init() {
-        let config = URLSessionConfiguration.default
-        config.httpShouldSetCookies = true
-        config.httpCookieAcceptPolicy = .always
-        self.session = URLSession(configuration: config)
-        super.init()
-    }
+    private var cachedOrgId: String?
 
     func resetReadyState() {
         webView?.stopLoading()
@@ -61,6 +55,7 @@ class ClaudeAPIClient: NSObject {
             cont.resume(throwing: APIError.invalidResponse)
         }
         webViewReady = false
+        cachedOrgId = nil
     }
 
     // MARK: - Main Entry
@@ -70,243 +65,166 @@ class ClaudeAPIClient: NSObject {
             throw APIError.noSessionKey
         }
 
-        // Try direct URLSession first (fast, no WebView overhead)
-        do {
-            return try await fetchUsageDirect(sessionKey: sessionKey)
-        } catch let error as APIError {
-            logger.info("Direct fetch failed: \(error.localizedDescription)")
-            switch error {
-            case .cloudflareBlocked:
-                logger.info("Falling back to WebView")
-                return try await fetchUsageViaWebView(sessionKey: sessionKey)
-            default:
+        ensureWebView()
+        try await injectSessionCookie(sessionKey)
+
+        // Up to 2 attempts: if Cloudflare expires mid-session, re-solve once
+        for attempt in 1...2 {
+            // Pass Cloudflare on first call (or after reset / expiry)
+            if !webViewReady {
+                try await passCloudflare()
+                webViewReady = true
+            }
+
+            // Get org ID (cached after first success)
+            if cachedOrgId == nil {
+                do {
+                    cachedOrgId = try await fetchOrgId()
+                } catch APIError.cloudflareBlocked where attempt < 2 {
+                    logger.info("Cloudflare expired during org fetch, re-solving...")
+                    webViewReady = false
+                    continue
+                }
+            }
+
+            do {
+                return try await fetchUsageData(orgId: cachedOrgId!)
+            } catch APIError.cloudflareBlocked where attempt < 2 {
+                logger.info("Cloudflare expired during usage fetch, re-solving...")
+                webViewReady = false
+                continue
+            } catch {
+                // On auth errors, clear everything so next poll starts fresh
+                if case APIError.httpError(let code, _) = error, code == 401 || code == 403 {
+                    resetReadyState()
+                }
                 throw error
             }
-        }
-    }
-
-    // MARK: - Direct URLSession Approach
-
-    private func fetchUsageDirect(sessionKey: String) async throws -> UsageInfo {
-        // Step 1: Bootstrap to get org ID
-        let orgId = try await fetchOrgIdDirect(sessionKey: sessionKey)
-
-        // Step 2: Fetch usage
-        return try await fetchUsageDataDirect(sessionKey: sessionKey, orgId: orgId)
-    }
-
-    private func makeRequest(url: URL, sessionKey: String) -> URLRequest {
-        var request = URLRequest(url: url)
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        request.setValue("https://claude.ai", forHTTPHeaderField: "Origin")
-        request.setValue("https://claude.ai/", forHTTPHeaderField: "Referer")
-        request.setValue("sessionKey=\(sessionKey)", forHTTPHeaderField: "Cookie")
-        return request
-    }
-
-    private func isCloudflareChallenge(_ response: HTTPURLResponse, data: Data) -> Bool {
-        let status = response.statusCode
-        if status == 403 || status == 503 {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            return body.contains("Just a moment") || body.contains("cf-browser-verification")
-                || body.contains("challenge-platform") || body.contains("cloudflare")
-        }
-        return false
-    }
-
-    private func fetchOrgIdDirect(sessionKey: String) async throws -> String {
-        guard let url = URL(string: "https://claude.ai/api/bootstrap") else {
-            throw APIError.invalidResponse
-        }
-
-        let request = makeRequest(url: url, sessionKey: sessionKey)
-        let (data, response): (Data, URLResponse)
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw APIError.networkError(error)
-        }
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-
-        if isCloudflareChallenge(httpResponse, data: data) {
-            throw APIError.cloudflareBlocked
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            throw APIError.httpError(httpResponse.statusCode, "Bootstrap failed")
-        }
-
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw APIError.parseError("Invalid bootstrap response")
-        }
-
-        // Try multiple paths for org ID — API format varies
-        let orgId: String? = {
-            // Path 1: account.memberships[0].organization.uuid
-            if let account = json["account"] as? [String: Any],
-               let memberships = account["memberships"] as? [[String: Any]],
-               let first = memberships.first,
-               let org = first["organization"] as? [String: Any],
-               let uuid = org["uuid"] as? String, !uuid.isEmpty {
-                return uuid
-            }
-            // Path 2: Top-level organization_uuid (some API versions)
-            if let uuid = json["organization_uuid"] as? String, !uuid.isEmpty {
-                return uuid
-            }
-            // Path 3: Direct uuid field on account
-            if let account = json["account"] as? [String: Any],
-               let memberships = account["memberships"] as? [[String: Any]],
-               let first = memberships.first,
-               let uuid = first["organization_uuid"] as? String, !uuid.isEmpty {
-                return uuid
-            }
-            return nil
-        }()
-
-        guard let orgId, !orgId.isEmpty else {
-            throw APIError.parseError("No organization ID found — check your session key")
-        }
-        return orgId
-    }
-
-    private func fetchUsageDataDirect(sessionKey: String, orgId: String) async throws -> UsageInfo {
-        guard let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/usage") else {
-            throw APIError.invalidResponse
-        }
-
-        let request = makeRequest(url: url, sessionKey: sessionKey)
-        let (data, response): (Data, URLResponse)
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw APIError.networkError(error)
-        }
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-
-        if isCloudflareChallenge(httpResponse, data: data) {
-            throw APIError.cloudflareBlocked
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            throw APIError.httpError(httpResponse.statusCode, "Usage API failed")
-        }
-
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw APIError.parseError("Failed to parse usage JSON")
-        }
-
-        guard let info = parseUsage(json) else {
-            throw APIError.parseError("Unexpected usage response format")
-        }
-        return info
-    }
-
-    // MARK: - WebView Fallback (for Cloudflare challenges)
-
-    private func fetchUsageViaWebView(sessionKey: String) async throws -> UsageInfo {
-        ensureWebView()
-
-        // Inject session key cookie
-        guard let cookie = HTTPCookie(properties: [
-            .name: "sessionKey",
-            .value: sessionKey,
-            .domain: ".claude.ai",
-            .path: "/",
-            .secure: true
-        ]) else {
-            throw APIError.parseError("Invalid session key format")
-        }
-        await webView!.configuration.websiteDataStore.httpCookieStore.setCookie(cookie)
-
-        if !webViewReady {
-            try await passCloudflare()
-            webViewReady = true
-        }
-
-        let orgId = try await fetchOrgIdViaWebView()
-        return try await fetchUsageDataViaWebView(orgId: orgId)
-    }
-
-    private func ensureWebView() {
-        guard webView == nil else { return }
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = .default()
-        let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 400, height: 300), configuration: config)
-        wv.navigationDelegate = self
-        wv.customUserAgent = userAgent
-
-        let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
-            styleMask: [],
-            backing: .buffered,
-            defer: false
-        )
-        win.contentView = wv
-        win.orderOut(nil)
-
-        self.webView = wv
-        self.hiddenWindow = win
-    }
-
-    private func passCloudflare() async throws {
-        logger.info("Navigating to claude.ai for Cloudflare challenge...")
-        try await navigateTo("https://claude.ai/")
-
-        for attempt in 1...10 {
-            try await Task.sleep(nanoseconds: 2_000_000_000)
-
-            let title = (try? await callJS("return document.title")) as? String ?? ""
-            logger.info("Cloudflare check \(attempt)/10 — title: \(title)")
-
-            if !title.isEmpty && !title.contains("Just a moment") {
-                logger.info("Cloudflare bypass complete")
-                return
-            }
-        }
-
-        let canReach = (try? await callJS("""
-            try {
-                const r = await fetch('/api/bootstrap', { credentials: 'include' });
-                return String(r.status);
-            } catch(e) { return 'error'; }
-        """)) as? String ?? "error"
-
-        if canReach == "200" {
-            logger.info("Cloudflare bypass succeeded (API reachable despite title)")
-            return
         }
 
         throw APIError.cloudflareBlocked
     }
 
-    private func fetchOrgIdViaWebView() async throws -> String {
+    // MARK: - WebView Setup
+
+    private func ensureWebView() {
+        guard webView == nil else { return }
+
+        let config = WKWebViewConfiguration()
+        config.websiteDataStore = .default()
+        // Ensure JS is fully enabled
+        let prefs = WKWebpagePreferences()
+        prefs.allowsContentJavaScript = true
+        config.defaultWebpagePreferences = prefs
+
+        let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 800, height: 600), configuration: config)
+        wv.navigationDelegate = self
+        wv.customUserAgent = userAgent
+
+        // CRITICAL: Use a real titled window placed off-screen.
+        // A styleMask:[] + orderOut window causes macOS to throttle/suspend JS,
+        // which prevents Cloudflare's managed challenge from solving.
+        let win = NSWindow(
+            contentRect: NSRect(x: -20000, y: -20000, width: 800, height: 600),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        win.contentView = wv
+        win.isReleasedWhenClosed = false
+        // orderBack keeps it behind everything, off-screen position makes it invisible
+        win.orderBack(nil)
+
+        self.webView = wv
+        self.hiddenWindow = win
+    }
+
+    private func injectSessionCookie(_ sessionKey: String) async throws {
+        guard let wv = webView else { return }
+
+        let cookie = HTTPCookie(properties: [
+            .name: "sessionKey",
+            .value: sessionKey,
+            .domain: ".claude.ai",
+            .path: "/",
+            .secure: true
+        ])
+        guard let cookie else {
+            throw APIError.parseError("Invalid session key format")
+        }
+        await wv.configuration.websiteDataStore.httpCookieStore.setCookie(cookie)
+    }
+
+    // MARK: - Cloudflare Challenge
+
+    private func passCloudflare() async throws {
+        logger.info("Loading claude.ai to solve Cloudflare challenge...")
+
+        // Navigate to the main page so Cloudflare can run its managed challenge
+        try await navigateTo("https://claude.ai/")
+
+        // Poll until the Cloudflare challenge resolves.
+        // Managed challenges typically resolve in 3-8 seconds.
+        for attempt in 1...20 {
+            try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5s per check
+
+            // Check page title — Cloudflare challenge page has "Just a moment..."
+            let title = (try? await callJS("return document.title")) as? String ?? ""
+
+            if !title.isEmpty && !title.contains("Just a moment") {
+                logger.info("Cloudflare solved after \(attempt) checks")
+                // Small extra wait for cookies to propagate
+                try await Task.sleep(nanoseconds: 500_000_000)
+                return
+            }
+
+            // Every 5 attempts, check if the API is actually reachable despite title
+            if attempt % 5 == 0 {
+                let status = (try? await callJS("""
+                    try {
+                        const r = await fetch('/api/bootstrap', { credentials: 'include' });
+                        return String(r.status);
+                    } catch(e) { return 'error'; }
+                """)) as? String ?? "error"
+
+                if status == "200" {
+                    logger.info("API reachable (title still shows challenge, but fetch works)")
+                    return
+                }
+                logger.info("Cloudflare check \(attempt)/20 — title: \(title), api status: \(status)")
+            }
+        }
+
+        throw APIError.cloudflareBlocked
+    }
+
+    // MARK: - Fetch Org ID
+
+    private func fetchOrgId() async throws -> String {
         let js = """
-        const resp = await fetch('/api/bootstrap', {
-            credentials: 'include',
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!resp.ok) return JSON.stringify({ error: 'HTTP ' + resp.status });
-        const data = await resp.json();
-        const memberships = data.account?.memberships || [];
-        const orgId = memberships[0]?.organization?.uuid || data.organization_uuid || '';
-        return JSON.stringify({ orgId: orgId });
+        try {
+            const resp = await fetch('/api/bootstrap', {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+            const text = await resp.text();
+            if (text.includes('Just a moment') || text.includes('cf-challenge') || text.includes('_cf_chl') || text.includes('challenge-platform')) {
+                return JSON.stringify({ cloudflare: true });
+            }
+            if (!resp.ok) return JSON.stringify({ error: resp.status });
+            const data = JSON.parse(text);
+            const m = data.account?.memberships || [];
+            const orgId = m[0]?.organization?.uuid
+                       || data.organization_uuid
+                       || m[0]?.organization_uuid
+                       || '';
+            return JSON.stringify({ orgId: orgId });
+        } catch(e) {
+            return JSON.stringify({ error: e.message });
+        }
         """
 
-        let result: String
-        do {
-            result = try await callJS(js) as? String ?? "{}"
-        } catch {
-            resetReadyState()
-            throw APIError.parseError("Bootstrap failed: \(error.localizedDescription)")
-        }
+        let result = try await callJS(js) as? String ?? "{}"
 
         guard let data = result.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -314,9 +232,17 @@ class ClaudeAPIClient: NSObject {
             throw APIError.parseError("Invalid bootstrap response")
         }
 
-        if let apiError = json["error"] as? String {
-            resetReadyState()
-            throw APIError.httpError(0, "Bootstrap: \(apiError)")
+        if json["cloudflare"] != nil {
+            throw APIError.cloudflareBlocked
+        }
+
+        if let errorVal = json["error"] {
+            let errorStr = "\(errorVal)"
+            if errorStr.contains("401") || errorStr.contains("403") {
+                resetReadyState()
+                throw APIError.parseError("Session key expired — get a fresh one from claude.ai")
+            }
+            throw APIError.httpError(0, "Bootstrap: \(errorStr)")
         }
 
         guard let orgId = json["orgId"] as? String, !orgId.isEmpty else {
@@ -324,69 +250,93 @@ class ClaudeAPIClient: NSObject {
             throw APIError.parseError("No organization ID found — check your session key")
         }
 
-        logger.info("Org ID (WebView): \(orgId.prefix(8))...")
+        logger.info("Org ID: \(orgId.prefix(8))...")
         return orgId
     }
 
-    private func fetchUsageDataViaWebView(orgId: String) async throws -> UsageInfo {
+    // MARK: - Fetch Usage Data
+
+    private func fetchUsageData(orgId: String) async throws -> UsageInfo {
         let js = """
-        const resp = await fetch('/api/organizations/\(orgId)/usage', {
-            credentials: 'include',
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!resp.ok) return JSON.stringify({ error: 'HTTP ' + resp.status });
-        return await resp.text();
+        try {
+            const resp = await fetch('/api/organizations/\(orgId)/usage', {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+            const text = await resp.text();
+            if (text.includes('Just a moment') || text.includes('cf-challenge') || text.includes('_cf_chl') || text.includes('challenge-platform')) {
+                return JSON.stringify({ cloudflare: true });
+            }
+            if (!resp.ok) return JSON.stringify({ error: resp.status });
+            return text;
+        } catch(e) {
+            return JSON.stringify({ error: e.message });
+        }
         """
 
-        let result: String
-        do {
-            result = try await callJS(js) as? String ?? "{}"
-        } catch {
-            throw APIError.parseError("Usage fetch failed: \(error.localizedDescription)")
-        }
+        let result = try await callJS(js) as? String ?? "{}"
 
         guard let data = result.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw APIError.parseError("Failed to parse usage JSON")
         }
 
-        if let apiError = json["error"] as? String {
-            throw APIError.httpError(0, "Usage API: \(apiError)")
+        if json["cloudflare"] != nil {
+            throw APIError.cloudflareBlocked
+        }
+
+        if let errorVal = json["error"] {
+            throw APIError.httpError(0, "Usage API: \(errorVal)")
         }
 
         guard let info = parseUsage(json) else {
-            logger.error("Unexpected usage format: \(result.prefix(300))")
+            logger.error("Unexpected usage format: \(result.prefix(500))")
             throw APIError.parseError("Unexpected usage response format")
         }
 
-        logger.info("Usage fetch complete (WebView): \(info.sessionPercentInt)%")
+        logger.info("Usage: \(info.usagePercentInt)%")
         return info
     }
 
     // MARK: - Parse Usage
 
     private func parseUsage(_ dict: [String: Any]) -> UsageInfo? {
-        // API returns: { "five_hour": { "utilization": 17.0, "resets_at": "ISO8601" }, ... }
-        guard let fiveHour = dict["five_hour"] as? [String: Any],
-              let utilization = fiveHour["utilization"] as? Double else {
-            return nil
+        // Try the known format: { "five_hour": { "utilization": 17.0, "resets_at": "..." } }
+        if let fiveHour = dict["five_hour"] as? [String: Any],
+           let utilization = fiveHour["utilization"] as? Double {
+            return UsageInfo(
+                sessionPercent: utilization / 100.0,
+                sessionResetDate: parseISO8601(fiveHour["resets_at"] as? String)
+            )
         }
 
-        var resetDate: Date?
-        if let resetsAt = fiveHour["resets_at"] as? String {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            resetDate = formatter.date(from: resetsAt)
-            if resetDate == nil {
-                formatter.formatOptions = [.withInternetDateTime]
-                resetDate = formatter.date(from: resetsAt)
-            }
+        // Fallback: try top-level "utilization" field
+        if let utilization = dict["utilization"] as? Double {
+            return UsageInfo(
+                sessionPercent: utilization / 100.0,
+                sessionResetDate: parseISO8601(dict["resets_at"] as? String)
+            )
         }
 
-        return UsageInfo(
-            sessionPercent: utilization / 100.0,
-            sessionResetDate: resetDate
-        )
+        // Fallback: try "daily" bucket
+        if let daily = dict["daily"] as? [String: Any],
+           let utilization = daily["utilization"] as? Double {
+            return UsageInfo(
+                sessionPercent: utilization / 100.0,
+                sessionResetDate: parseISO8601(daily["resets_at"] as? String)
+            )
+        }
+
+        return nil
+    }
+
+    private func parseISO8601(_ string: String?) -> Date? {
+        guard let string else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: string) { return date }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: string)
     }
 
     // MARK: - WebView Helpers
@@ -397,6 +347,7 @@ class ClaudeAPIClient: NSObject {
         }
 
         wv.stopLoading()
+        // Cancel any pending continuation
         if let cont = navigationContinuation {
             navigationContinuation = nil
             cont.resume(throwing: APIError.invalidResponse)

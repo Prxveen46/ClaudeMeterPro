@@ -40,6 +40,8 @@ class UsageStore: ObservableObject {
     private let webClient = ClaudeAPIClient()
     private var pollTimer: Timer?
     private var countdownTimer: Timer?
+    private var retryTimer: Timer?
+    private var consecutiveFailures = 0
 
     // Track last label to avoid unnecessary SwiftUI updates
     private var lastComputedLabel: String = "—"
@@ -77,6 +79,7 @@ class UsageStore: ObservableObject {
         hasSessionKey = false
         usageInfo = nil
         lastError = nil
+        consecutiveFailures = 0
         webClient.resetReadyState()
         stopPolling()
         updateMenuBarLabel()
@@ -88,16 +91,62 @@ class UsageStore: ObservableObject {
         guard !isLoading else { return }  // prevent concurrent fetches
         isLoading = true
         lastError = nil
+        retryTimer?.invalidate()
+        retryTimer = nil
+        updateMenuBarLabel()
 
-        do {
-            let info = try await webClient.fetchUsage()
-            self.usageInfo = info
-        } catch {
-            self.lastError = error.localizedDescription
+        // Retry up to 3 times with 5s delays for transient failures
+        var attempts = 0
+        let maxAttempts = 3
+        var lastAttemptError: String?
+
+        while attempts < maxAttempts {
+            attempts += 1
+            do {
+                let info = try await webClient.fetchUsage()
+                self.usageInfo = info
+                self.consecutiveFailures = 0
+                lastAttemptError = nil
+                break
+            } catch let error as APIError {
+                lastAttemptError = error.localizedDescription
+                // Don't retry auth errors — they won't self-resolve
+                if case .noSessionKey = error { break }
+                if case .parseError(let msg) = error, msg.contains("expired") { break }
+                // Retry transient errors
+                if attempts < maxAttempts {
+                    try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s
+                }
+            } catch {
+                lastAttemptError = error.localizedDescription
+                if attempts < maxAttempts {
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                }
+            }
+        }
+
+        if let errorMsg = lastAttemptError {
+            self.lastError = errorMsg
+            self.consecutiveFailures += 1
+
+            // If we still have no data, schedule a quick retry (10s)
+            // to avoid waiting the full poll interval
+            if usageInfo == nil && consecutiveFailures < 6 {
+                scheduleQuickRetry()
+            }
         }
 
         isLoading = false
         updateMenuBarLabel()
+    }
+
+    private func scheduleQuickRetry() {
+        retryTimer?.invalidate()
+        let delay: TimeInterval = min(Double(consecutiveFailures) * 10, 60) // 10s, 20s, 30s... max 60s
+        retryTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.fetchUsage() }
+        }
     }
 
     // MARK: - Menu Bar Label
@@ -112,15 +161,18 @@ class UsageStore: ObservableObject {
 
     private func computeMenuBarLabel() -> String {
         guard hasSessionKey else { return "⚠ Setup" }
-        guard let info = usageInfo else {
-            if isLoading { return "..." }
-            if lastError != nil { return "⚠ Error" }
-            return "—"
+
+        // If we have data, always show it (even if last fetch failed — data is still valid)
+        if let info = usageInfo {
+            let percent = "\(info.usagePercentInt)%"
+            let countdown = formatCountdown(resetSecondsRemaining)
+            return "\(percent) | \(countdown)"
         }
 
-        let percent = "\(info.sessionPercentInt)%"
-        let countdown = formatCountdown(resetSecondsRemaining)
-        return "\(percent) | \(countdown)"
+        // No data yet
+        if isLoading || retryTimer != nil { return "..." }
+        if lastError != nil { return "⚠ Error" }
+        return "—"
     }
 
     var resetSecondsRemaining: TimeInterval {
@@ -136,7 +188,7 @@ class UsageStore: ObservableObject {
 
     /// Whether usage is fully exhausted.
     var isExhausted: Bool {
-        (usageInfo?.sessionPercentInt ?? 0) >= 100
+        (usageInfo?.usagePercentInt ?? 0) >= 100
     }
 
     // MARK: - Polling
@@ -160,6 +212,8 @@ class UsageStore: ObservableObject {
     private func stopPolling() {
         pollTimer?.invalidate()
         pollTimer = nil
+        retryTimer?.invalidate()
+        retryTimer = nil
     }
 
     private func restartPolling() {

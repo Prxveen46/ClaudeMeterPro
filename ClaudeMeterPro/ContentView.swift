@@ -63,14 +63,19 @@ struct ContentView: View {
             HStack(spacing: 8) {
                 ZStack {
                     Circle()
-                        .fill(Color.red.opacity(0.12))
+                        .fill(Color.orange.opacity(0.12))
                         .frame(width: 32, height: 32)
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Image(systemName: "arrow.clockwise")
                         .font(.system(size: 14))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.orange)
                 }
-                Text("Connection Error")
-                    .font(.system(size: 13, weight: .semibold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Connecting...")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Auto-retrying in background")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
+                }
             }
 
             Text(error)
@@ -78,7 +83,7 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
 
-            Button("Retry") {
+            Button("Retry Now") {
                 Task { await usageStore.fetchUsage() }
             }
             .buttonStyle(.borderedProminent)
@@ -98,31 +103,42 @@ struct ContentView: View {
             if let info = usageStore.usageInfo {
                 VStack(spacing: 14) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text("\(info.sessionPercentInt)")
+                        Text("\(info.usagePercentInt)")
                             .font(.system(size: 44, weight: .bold, design: .rounded))
                             .monospacedDigit()
-                            .foregroundStyle(ClaudeTheme.usageColor(percent: info.sessionPercentInt))
+                            .foregroundStyle(ClaudeTheme.usageColor(percent: info.usagePercentInt))
                         Text("%")
                             .font(.system(size: 18, weight: .medium, design: .rounded))
-                            .foregroundStyle(ClaudeTheme.usageColor(percent: info.sessionPercentInt).opacity(0.5))
+                            .foregroundStyle(ClaudeTheme.usageColor(percent: info.usagePercentInt).opacity(0.5))
                         Spacer()
                         countdownBadge
                     }
 
-                    progressBar(percent: info.sessionPercentInt)
+                    progressBar(percent: info.usagePercentInt)
 
-                    Text("5-hour session usage")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack {
+                        Text("5-hour session usage")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        if usageStore.lastError != nil {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 9))
+                                Text("Retrying...")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundStyle(.orange)
+                        }
+                    }
                 }
                 .padding(16)
                 .onAppear {
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
-                        animatedPercent = CGFloat(info.sessionPercentInt)
+                        animatedPercent = CGFloat(info.usagePercentInt)
                     }
                 }
-                .onChange(of: info.sessionPercentInt) { newVal in
+                .onChange(of: info.usagePercentInt) { newVal in
                     withAnimation(.easeInOut(duration: 0.4)) {
                         animatedPercent = CGFloat(newVal)
                     }
