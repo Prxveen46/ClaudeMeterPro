@@ -1,472 +1,1254 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClaudeMeter Pro — Track Your Claude Usage From the Menu Bar</title>
-    <meta name="description" content="Know exactly how much Claude you have left. A beautiful macOS menu bar app that tracks your Claude.ai usage in real time.">
-    <meta property="og:title" content="ClaudeMeter Pro">
-    <meta property="og:description" content="Track your Claude.ai usage right from the menu bar. $1 one-time.">
-    <meta property="og:type" content="website">
-    <style>
-        :root {
-            --amber: rgb(222, 143, 87);
-            --amber-light: rgb(240, 184, 133);
-            --amber-dark: rgb(184, 107, 56);
-            --teal: rgb(89, 191, 166);
-            --coral: rgb(235, 115, 89);
-            --red: rgb(209, 56, 56);
-            --bg: #0a0a0c;
-            --bg-card: #141418;
-            --bg-elevated: #1c1c22;
-            --text: #f0ece8;
-            --text-secondary: #9a958f;
-            --text-dim: #5a564f;
-            --border: rgba(255, 255, 255, 0.06);
-            --radius: 16px;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            -webkit-font-smoothing: antialiased;
-        }
-        a { color: var(--amber); text-decoration: none; }
-        a:hover { color: var(--amber-light); }
-        .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClaudeMeter Pro — Track Your Claude Usage From the Menu Bar</title>
+  <meta name="description" content="Know exactly how much Claude you have left. A beautiful macOS menu bar app that tracks your Claude.ai usage in real time. $1 one-time purchase.">
+  <meta property="og:title" content="ClaudeMeter Pro — Track Your Claude Usage">
+  <meta property="og:description" content="Track your Claude.ai usage right from the menu bar. One-time $1 purchase, free updates forever.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --amber:        rgb(222, 143, 87);
+      --amber-light:  rgb(240, 184, 133);
+      --amber-dark:   rgb(184, 107, 56);
+      --teal:         rgb(89, 191, 166);
+      --coral:        rgb(235, 115, 89);
+      --red:          rgb(209, 56, 56);
+      --bg:           #080808;
+      --bg-card:      #111113;
+      --bg-elevated:  #1a1a1e;
+      --text:         #F0ECE8;
+      --text-sec:     #8A857F;
+      --text-dim:     #4A4640;
+      --border:       rgba(255,255,255,0.07);
+      --radius:       16px;
+      --mono:         'JetBrains Mono', monospace;
+      --sans:         'IBM Plex Sans', sans-serif;
+    }
 
-        /* Nav */
-        nav {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            padding: 16px 0;
-            background: rgba(10, 10, 12, 0.85);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-        }
-        nav .container { display: flex; align-items: center; justify-content: space-between; }
-        .nav-brand { font-size: 16px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
-        .nav-brand .icon { width: 28px; height: 28px; background: linear-gradient(135deg, var(--amber-light), var(--amber)); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-        .nav-links { display: flex; gap: 28px; align-items: center; }
-        .nav-links a { color: var(--text-secondary); font-size: 14px; font-weight: 500; transition: color 0.2s; }
-        .nav-links a:hover { color: var(--text); }
-        .nav-cta { background: var(--amber) !important; color: #000 !important; padding: 8px 18px; border-radius: 8px; font-weight: 600; font-size: 13px !important; transition: background 0.2s; }
-        .nav-cta:hover { background: var(--amber-light) !important; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        /* Hero */
-        .hero { padding: 150px 0 80px; text-align: center; position: relative; overflow: hidden; }
-        .hero::before { content: ''; position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 700px; height: 500px; background: radial-gradient(ellipse, rgba(222,143,87,0.1) 0%, transparent 70%); pointer-events: none; }
-        .hero-icon { width: 80px; height: 80px; background: linear-gradient(135deg, var(--amber-light), var(--amber-dark)); border-radius: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 36px; margin-bottom: 32px; box-shadow: 0 20px 60px rgba(222,143,87,0.25); }
-        .hero h1 { font-size: clamp(38px, 5.5vw, 60px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 20px; }
-        .hero h1 span { color: var(--amber); }
-        .hero p { font-size: 19px; color: var(--text-secondary); max-width: 520px; margin: 0 auto 36px; line-height: 1.5; }
-        .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-        .btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; background: var(--amber); color: #000; font-size: 16px; font-weight: 700; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; }
-        .btn-primary:hover { background: var(--amber-light); transform: translateY(-1px); box-shadow: 0 8px 30px rgba(222,143,87,0.3); color: #000; }
-        .btn-secondary { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; background: var(--bg-elevated); color: var(--text); font-size: 16px; font-weight: 600; border-radius: 12px; border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; }
-        .btn-secondary:hover { background: #242430; border-color: rgba(255,255,255,0.12); color: var(--text); }
-        .hero-note { margin-top: 16px; font-size: 13px; color: var(--text-secondary); opacity: 0.7; }
+    html { scroll-behavior: smooth; }
 
-        /* App Mockups */
-        .mockups { display: flex; gap: 24px; justify-content: center; align-items: flex-start; margin: 60px auto 0; max-width: 800px; flex-wrap: wrap; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
 
-        /* Popover mockup */
-        .mock-popover {
-            width: 280px; background: #1e1e24; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 25px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
-            overflow: hidden; position: relative;
-        }
-        .mock-popover-inner { padding: 18px; }
-        .mock-hero-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
-        .mock-pct { font-size: 48px; font-weight: 800; font-family: -apple-system, system-ui, sans-serif; letter-spacing: -2px; }
-        .mock-pct-sign { font-size: 20px; font-weight: 500; opacity: 0.4; }
-        .mock-reset { text-align: right; }
-        .mock-reset-label { font-size: 9px; font-weight: 600; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
-        .mock-reset-time { font-size: 15px; font-weight: 700; font-family: 'SF Mono', monospace; color: var(--text-secondary); }
-        .mock-bar-row { margin-bottom: 12px; }
-        .mock-bar-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
-        .mock-bar-label { font-size: 11px; color: var(--text-dim); }
-        .mock-bar-value { font-size: 11px; font-weight: 600; font-family: 'SF Mono', monospace; }
-        .mock-bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; position: relative; }
-        .mock-bar-fill { height: 100%; border-radius: 4px; position: relative; }
-        .mock-bar-fill::after { content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.5); filter: blur(1px); }
-        .mock-prediction { font-size: 10px; color: var(--text-dim); text-align: right; margin-top: 2px; }
-        .mock-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 4px -18px 0; }
-        .mock-toolbar { display: flex; justify-content: space-around; padding: 10px 18px; }
-        .mock-toolbar-btn { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+    /* Grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.032;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 300px 300px;
+    }
 
-        /* Menu bar mockup */
-        .mock-menubar {
-            background: linear-gradient(180deg, #2a2a30 0%, #232328 100%);
-            border-radius: 8px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;
-            border: 1px solid rgba(255,255,255,0.08); font-size: 12px; font-weight: 500; color: var(--text);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-        }
-        .mock-menubar-ring { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); position: relative; }
-        .mock-menubar-ring::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--amber); border-right-color: var(--amber); transform: rotate(-45deg); }
-        .mock-menubar-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 4px currentColor; }
-        .mock-menubar-pill { width: 26px; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.15); position: relative; overflow: hidden; }
-        .mock-menubar-pill-fill { height: 100%; border-radius: 4px; position: absolute; left: 0; top: 0; }
+    a { text-decoration: none; color: var(--amber); }
+    a:hover { color: var(--amber-light); }
 
-        .mock-menubar-strip {
-            display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;
-        }
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 28px;
+    }
 
-        /* Settings mockup */
-        .mock-settings {
-            width: 420px; background: #1e1e24; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08);
-            box-shadow: 0 25px 80px rgba(0,0,0,0.6); overflow: hidden;
-        }
-        .mock-settings-titlebar { height: 36px; background: #28282e; display: flex; align-items: center; padding: 0 12px; gap: 7px; }
-        .mock-traffic { width: 12px; height: 12px; border-radius: 50%; }
-        .mock-settings-body { padding: 16px; }
-        .mock-tab-bar { display: flex; gap: 4px; margin-bottom: 14px; }
-        .mock-tab { padding: 6px 16px; border-radius: 6px; font-size: 11px; font-weight: 500; color: var(--text-secondary); }
-        .mock-tab.active { background: rgba(222,143,87,0.1); color: var(--amber); }
-        .mock-chart { height: 120px; position: relative; overflow: hidden; border-radius: 8px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); margin-bottom: 12px; }
-        .mock-chart-line { position: absolute; bottom: 0; left: 0; right: 0; height: 100%; }
-        .mock-chart svg { width: 100%; height: 100%; }
-        .mock-heatmap { display: grid; grid-template-columns: repeat(14, 1fr); gap: 2px; margin-bottom: 12px; }
-        .mock-heat-cell { aspect-ratio: 1; border-radius: 2px; }
-        .mock-chart-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-dim); margin-top: -8px; margin-bottom: 10px; }
-        .mock-range-picker { display: flex; gap: 4px; margin-bottom: 10px; }
-        .mock-range { padding: 3px 10px; border-radius: 4px; font-size: 10px; font-weight: 500; color: var(--text-dim); background: rgba(255,255,255,0.03); }
-        .mock-range.active { background: rgba(222,143,87,0.12); color: var(--amber); }
+    /* ── REVEAL ANIMATIONS ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+    .reveal-delay-5 { transition-delay: 0.5s; }
+    .reveal-delay-6 { transition-delay: 0.6s; }
 
-        /* Sections */
-        .features { padding: 100px 0; }
-        .section-header { text-align: center; margin-bottom: 60px; }
-        .section-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--amber); margin-bottom: 12px; }
-        .section-header h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; letter-spacing: -0.02em; }
-        .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-        .feature-card { padding: 28px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); transition: all 0.3s; }
-        .feature-card:hover { border-color: rgba(222,143,87,0.2); transform: translateY(-2px); }
-        .feature-icon { font-size: 28px; margin-bottom: 16px; }
-        .feature-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-        .feature-card p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 200;
+      padding: 0;
+      background: rgba(8,8,8,0.72);
+      backdrop-filter: blur(24px) saturate(1.5);
+      -webkit-backdrop-filter: blur(24px) saturate(1.5);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .nav-brand-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--amber-light) 0%, var(--amber-dark) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(222,143,87,0.35);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+    .nav-links a {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-sec);
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .btn-nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      background: var(--amber);
+      color: #000 !important;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      white-space: nowrap;
+    }
+    .btn-nav-cta:hover {
+      background: var(--amber-light);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(222,143,87,0.3);
+    }
 
-        .styles { padding: 80px 0; }
-        .styles-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
-        .style-chip { padding: 10px 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 100px; font-size: 14px; font-weight: 500; color: var(--text-secondary); transition: all 0.2s; }
-        .style-chip:hover { border-color: var(--amber); color: var(--amber); }
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      padding: 148px 0 80px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(ellipse at 50% 20%, rgba(222,143,87,0.11) 0%, transparent 68%);
+      pointer-events: none;
+    }
+    .hero-content { position: relative; z-index: 1; }
+    .hero h1 {
+      font-family: var(--mono);
+      font-size: clamp(36px, 5.5vw, 66px);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 22px;
+    }
+    .hero h1 em {
+      font-style: normal;
+      color: var(--amber);
+      text-shadow: 0 0 48px rgba(222,143,87,0.35);
+    }
+    .hero-sub {
+      font-size: 19px;
+      font-weight: 400;
+      color: var(--text-sec);
+      max-width: 500px;
+      margin: 0 auto 40px;
+      line-height: 1.55;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 15px 32px;
+      background: var(--amber);
+      color: #000;
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 700;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary:hover {
+      background: var(--amber-light);
+      color: #000;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 36px rgba(222,143,87,0.32);
+    }
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 15px 28px;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, transform 0.2s;
+    }
+    .btn-ghost:hover {
+      background: var(--bg-elevated);
+      border-color: rgba(255,255,255,0.2);
+      color: var(--text);
+      transform: translateY(-2px);
+    }
+    .hero-note {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      letter-spacing: 0.03em;
+      margin-bottom: 52px;
+    }
 
-        /* Pricing */
-        .pricing { padding: 100px 0; }
-        .pricing-card { max-width: 440px; margin: 0 auto; padding: 40px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; text-align: center; position: relative; overflow: hidden; }
-        .pricing-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--amber-dark), var(--amber), var(--amber-light)); }
-        .pricing-card .label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--amber); margin-bottom: 8px; }
-        .price { font-size: 56px; font-weight: 800; letter-spacing: -0.03em; margin: 8px 0; }
-        .price-note { font-size: 14px; color: var(--text-secondary); margin-bottom: 28px; }
-        .pricing-features { list-style: none; text-align: left; margin-bottom: 32px; }
-        .pricing-features li { padding: 10px 0; font-size: 15px; color: var(--text-secondary); display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
-        .pricing-features li:last-child { border-bottom: none; }
-        .pricing-features .check { color: var(--teal); font-weight: 700; font-size: 16px; }
-        .btn-buy { display: block; width: 100%; padding: 16px; background: var(--amber); color: #000; font-size: 16px; font-weight: 700; border-radius: 12px; border: none; cursor: pointer; transition: all 0.2s; text-align: center; }
-        .btn-buy:hover { background: var(--amber-light); color: #000; }
-        .install-note { max-width: 600px; margin: 40px auto 0; padding: 20px 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
-        .install-note strong { color: var(--text); }
+    /* Menubar style chips row */
+    .menubar-chips {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 64px;
+    }
+    .menubar-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 16px;
+      background: var(--bg-elevated);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 100px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-sec);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    }
+    .chip-ring {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.15);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .chip-ring::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--amber);
+      border-right-color: var(--amber);
+      transform: rotate(-35deg);
+    }
+    .chip-pill-wrap {
+      width: 28px; height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 4px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .chip-pill-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: var(--amber);
+    }
+    .chip-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
 
-        footer { padding: 40px 0; border-top: 1px solid var(--border); text-align: center; }
-        footer p { font-size: 13px; color: var(--text-secondary); }
+    /* ── APP MOCKUPS ── */
+    .mockups-section {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      position: relative;
+    }
 
-        @media (max-width: 768px) {
-            .features-grid { grid-template-columns: 1fr; }
-            .nav-links a:not(.nav-cta) { display: none; }
-            .hero { padding: 130px 0 60px; }
-            .mockups { flex-direction: column; align-items: center; }
-            .mock-settings { width: 100%; max-width: 420px; }
-            .mock-popover { width: 100%; max-width: 280px; }
-            .pricing-card { padding: 28px; }
-        }
-        @media (max-width: 480px) {
-            .hero-actions { flex-direction: column; align-items: center; }
-            .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
-        }
-        html { scroll-behavior: smooth; }
-    </style>
+    /* Popover mockup */
+    .mock-popover {
+      width: 276px;
+      background: #1c1c22;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.09);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03);
+      overflow: hidden;
+      flex-shrink: 0;
+      transform: rotate(-1.5deg) translateY(8px);
+    }
+    .mock-pop-body { padding: 20px 20px 8px; }
+    .mock-big-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .mock-pct-num {
+      font-family: var(--mono);
+      font-size: 52px;
+      font-weight: 700;
+      color: var(--amber);
+      letter-spacing: -3px;
+      line-height: 1;
+      text-shadow: 0 0 32px rgba(222,143,87,0.4);
+    }
+    .mock-pct-sym {
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--amber);
+      opacity: 0.5;
+      margin-left: 2px;
+    }
+    .mock-reset-col { text-align: right; }
+    .mock-reset-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+    .mock-reset-time {
+      font-family: var(--mono);
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-sec);
+    }
+    .mock-bar-section { margin-bottom: 10px; }
+    .mock-bar-head {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    .mock-bar-lbl {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--sans);
+    }
+    .mock-bar-val {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .mock-bar-track {
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+      position: relative;
+    }
+    .mock-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+    .mock-predict {
+      font-size: 10px;
+      color: var(--text-dim);
+      text-align: right;
+      margin-top: 3px;
+      font-family: var(--mono);
+    }
+    .mock-sep {
+      height: 1px;
+      background: rgba(255,255,255,0.06);
+      margin: 4px -20px 0;
+    }
+    .mock-toolbar {
+      display: flex;
+      justify-content: space-around;
+      padding: 11px 8px;
+    }
+    .mock-tool-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: var(--text-dim);
+    }
+    .mock-tool-btn svg { width: 14px; height: 14px; }
+    .mock-tool-lbl {
+      font-size: 9px;
+      font-family: var(--mono);
+    }
+
+    /* Settings mockup */
+    .mock-settings {
+      width: 420px;
+      background: #1c1c22;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.09);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.65);
+      overflow: hidden;
+      flex-shrink: 0;
+      transform: rotate(1deg) translateY(-4px);
+    }
+    .mock-titlebar {
+      height: 38px;
+      background: #242428;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 7px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .mock-traffic {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .mock-titlebar-label {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-right: 52px;
+      font-family: var(--sans);
+    }
+    .mock-settings-body { padding: 16px; }
+    .mock-tabs {
+      display: flex;
+      gap: 3px;
+      margin-bottom: 14px;
+    }
+    .mock-tab {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
+      font-family: var(--sans);
+      cursor: pointer;
+    }
+    .mock-tab.active {
+      background: rgba(222,143,87,0.1);
+      color: var(--amber);
+    }
+    .mock-range-row {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .mock-range {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.03);
+      font-family: var(--mono);
+    }
+    .mock-range.active {
+      background: rgba(222,143,87,0.12);
+      color: var(--amber);
+    }
+    .mock-chart-wrap {
+      height: 116px;
+      position: relative;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .mock-chart-wrap svg { width: 100%; height: 100%; }
+    .mock-chart-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      font-family: var(--mono);
+    }
+    .mock-activity-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-sec);
+      margin-bottom: 7px;
+      font-family: var(--sans);
+    }
+    .mock-heatmap {
+      display: grid;
+      grid-template-columns: repeat(14, 1fr);
+      gap: 2px;
+      margin-bottom: 12px;
+    }
+    .mock-heat-cell {
+      aspect-ratio: 1;
+      border-radius: 2px;
+    }
+    .mock-footer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .mock-snap-count {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+    .mock-export-btn {
+      padding: 4px 12px;
+      border-radius: 5px;
+      background: rgba(222,143,87,0.12);
+      color: var(--amber);
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--mono);
+    }
+
+    /* ── FEATURES ── */
+    .features {
+      padding: 120px 0;
+      position: relative;
+      z-index: 1;
+    }
+    .section-header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+    .section-label {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--amber);
+      margin-bottom: 14px;
+    }
+    .section-header h2 {
+      font-family: var(--mono);
+      font-size: clamp(26px, 3.5vw, 40px);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .feature-card {
+      padding: 28px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      cursor: default;
+    }
+    .feature-card:hover {
+      border-color: rgba(222,143,87,0.3);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+    .feature-icon-wrap {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(222,143,87,0.1);
+      border: 1px solid rgba(222,143,87,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      flex-shrink: 0;
+    }
+    .feature-icon-wrap svg {
+      width: 18px;
+      height: 18px;
+      color: var(--amber);
+    }
+    .feature-card h3 {
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 9px;
+      color: var(--text);
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-sec);
+      line-height: 1.65;
+    }
+
+    /* ── STYLES SHOWCASE ── */
+    .styles-section { padding: 80px 0; position: relative; z-index: 1; }
+    .styles-chips {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 40px;
+    }
+    .style-chip {
+      padding: 10px 22px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-sec);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .style-chip:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+      background: rgba(222,143,87,0.06);
+    }
+
+    /* ── PRICING ── */
+    .pricing { padding: 120px 0; position: relative; z-index: 1; }
+    .pricing-card {
+      max-width: 460px;
+      margin: 0 auto;
+      padding: 44px 44px 40px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .pricing-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--amber-dark), var(--amber), var(--amber-light));
+    }
+    .pricing-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 260px;
+      height: 200px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(222,143,87,0.09) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .pricing-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--amber);
+      margin-bottom: 10px;
+    }
+    .price-num {
+      font-family: var(--mono);
+      font-size: 72px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .price-sub {
+      font-size: 14px;
+      color: var(--text-sec);
+      margin-bottom: 36px;
+    }
+    .pricing-list {
+      list-style: none;
+      text-align: left;
+      margin-bottom: 36px;
+    }
+    .pricing-list li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 0;
+      font-size: 15px;
+      color: var(--text-sec);
+      border-bottom: 1px solid var(--border);
+    }
+    .pricing-list li:last-child { border-bottom: none; }
+    .pricing-list li svg {
+      width: 16px;
+      height: 16px;
+      color: var(--teal);
+      flex-shrink: 0;
+    }
+    .btn-buy {
+      display: block;
+      width: 100%;
+      padding: 17px;
+      background: var(--amber);
+      color: #000;
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      text-align: center;
+    }
+    .btn-buy:hover {
+      background: var(--amber-light);
+      color: #000;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 36px rgba(222,143,87,0.32);
+    }
+    .install-card {
+      max-width: 560px;
+      margin: 40px auto 0;
+      padding: 22px 28px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      font-size: 13px;
+      color: var(--text-sec);
+      line-height: 1.75;
+    }
+    .install-card strong { color: var(--text); font-weight: 600; }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    footer p { font-size: 13px; color: var(--text-sec); }
+    footer a { color: var(--text-sec); transition: color 0.2s; }
+    footer a:hover { color: var(--text); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .mock-settings { width: 100%; max-width: 400px; }
+    }
+    @media (max-width: 768px) {
+      .nav-links a:not(.btn-nav-cta) { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .mock-popover { transform: none; }
+      .mock-settings { transform: none; }
+      .pricing-card { padding: 32px 24px; }
+    }
+    @media (max-width: 480px) {
+      .hero { padding: 120px 0 60px; }
+      .hero-actions { flex-direction: column; align-items: center; }
+      .btn-primary, .btn-ghost { width: 100%; justify-content: center; }
+      .menubar-chips { gap: 8px; }
+      .container { padding: 0 18px; }
+    }
+    @media (min-width: 1440px) {
+      .container { max-width: 1200px; }
+    }
+  </style>
 </head>
 <body>
 
-<!-- Nav -->
+<!-- ── NAV ── -->
 <nav>
-    <div class="container">
-        <div class="nav-brand">
-            <div class="icon">&#9889;</div>
-            ClaudeMeter Pro
+  <div class="container">
+    <div class="nav-inner">
+      <a class="nav-brand" href="#" style="color: var(--text);">
+        <div class="nav-brand-icon">
+          <!-- Bolt / Zap SVG -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
         </div>
-        <div class="nav-links">
-            <a href="#features">Features</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#pricing" class="nav-cta">$1 — Get It Now</a>
-        </div>
+        ClaudeMeter Pro
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="https://prxveen.gumroad.com/l/claudemeter" class="btn-nav-cta" target="_blank">
+          $1 &mdash; Get It Now
+        </a>
+      </div>
     </div>
+  </div>
 </nav>
 
-<!-- Hero -->
+<!-- ── HERO ── -->
 <section class="hero">
-    <div class="container">
-        <div class="hero-icon">&#9889;</div>
-        <h1>Know exactly how much<br><span>Claude</span> you have left.</h1>
-        <p>A beautiful macOS menu bar app that tracks your Claude.ai session, daily, and weekly usage in real time.</p>
-        <div class="hero-actions">
-            <a href="#pricing" class="btn-primary">&#11015; Download for macOS — $1</a>
-            <a href="#features" class="btn-secondary">See Features</a>
-        </div>
-        <p class="hero-note">Requires macOS 13 Ventura or later &middot; Cmd+Shift+U to toggle</p>
+  <div class="hero-glow"></div>
+  <div class="container">
+    <div class="hero-content">
+      <h1 class="reveal">
+        Know exactly how much<br>
+        <em>Claude</em> you have left.
+      </h1>
+      <p class="hero-sub reveal reveal-delay-1">
+        A precision macOS menu bar app that tracks your Claude.ai session, daily, and weekly usage in real time.
+      </p>
+      <div class="hero-actions reveal reveal-delay-2">
+        <a href="https://prxveen.gumroad.com/l/claudemeter" class="btn-primary" target="_blank">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download for macOS &mdash; $1
+        </a>
+        <a href="#features" class="btn-ghost">
+          See Features
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
+      <p class="hero-note reveal reveal-delay-3">macOS 13 Ventura or later &nbsp;&middot;&nbsp; Cmd+Shift+U to toggle</p>
 
-        <!-- Menu Bar Styles Preview -->
-        <div class="mock-menubar-strip" style="margin-top: 48px;">
-            <div class="mock-menubar">
-                <div class="mock-menubar-ring"></div>
-                <span style="font-family: 'SF Mono', monospace; font-size: 11px;">1h 42m</span>
-            </div>
-            <div class="mock-menubar">
-                <div class="mock-menubar-pill"><div class="mock-menubar-pill-fill" style="width: 65%; background: var(--amber);"></div></div>
-                <span style="font-family: 'SF Mono', monospace; font-size: 11px;">65% | 1h 42m</span>
-            </div>
-            <div class="mock-menubar">
-                <div class="mock-menubar-dot" style="background: var(--teal); color: var(--teal);"></div>
-                <span style="font-family: 'SF Mono', monospace; font-size: 11px;">32% | 3h 15m</span>
-            </div>
-            <div class="mock-menubar">
-                <div class="mock-menubar-dot" style="background: var(--coral); color: var(--coral);"></div>
-                <span style="font-family: 'SF Mono', monospace; font-size: 11px;">87% | 0h 28m</span>
-            </div>
+      <!-- Menubar style chip previews -->
+      <div class="menubar-chips reveal reveal-delay-3">
+        <div class="menubar-chip">
+          <div class="chip-ring"></div>
+          1h 42m
         </div>
+        <div class="menubar-chip">
+          <div class="chip-pill-wrap"><div class="chip-pill-fill" style="width: 65%;"></div></div>
+          65% &nbsp;1h 42m
+        </div>
+        <div class="menubar-chip">
+          <div class="chip-dot" style="background: var(--teal); box-shadow: 0 0 5px var(--teal);"></div>
+          32% &nbsp;3h 15m
+        </div>
+        <div class="menubar-chip">
+          <div class="chip-dot" style="background: var(--coral); box-shadow: 0 0 5px var(--coral);"></div>
+          87% &nbsp;0h 28m
+        </div>
+      </div>
 
-        <!-- App Mockups -->
-        <div class="mockups">
-            <!-- Popover -->
-            <div class="mock-popover">
-                <div class="mock-popover-inner">
-                    <div class="mock-hero-row">
-                        <div>
-                            <span class="mock-pct" style="color: var(--amber);">65</span><span class="mock-pct-sign" style="color: var(--amber);">%</span>
-                        </div>
-                        <div class="mock-reset">
-                            <div class="mock-reset-label">RESETS IN</div>
-                            <div class="mock-reset-time">1h 42m</div>
-                        </div>
-                    </div>
-                    <div class="mock-bar-row">
-                        <div class="mock-bar-header">
-                            <span class="mock-bar-label">5-hour session</span>
-                            <span class="mock-bar-value" style="color: var(--amber);">65%</span>
-                        </div>
-                        <div class="mock-bar"><div class="mock-bar-fill" style="width: 65%; background: linear-gradient(90deg, var(--teal), var(--amber));"></div></div>
-                        <div class="mock-prediction">Limit in ~2h 15m</div>
-                    </div>
-                    <div class="mock-bar-row">
-                        <div class="mock-bar-header">
-                            <span class="mock-bar-label">Daily</span>
-                            <span class="mock-bar-value" style="color: var(--teal);">28%</span>
-                        </div>
-                        <div class="mock-bar"><div class="mock-bar-fill" style="width: 28%; background: var(--teal);"></div></div>
-                    </div>
-                    <div class="mock-bar-row">
-                        <div class="mock-bar-header">
-                            <span class="mock-bar-label">Weekly</span>
-                            <span class="mock-bar-value" style="color: var(--teal);">12%</span>
-                        </div>
-                        <div class="mock-bar"><div class="mock-bar-fill" style="width: 12%; background: var(--teal);"></div></div>
-                    </div>
-                </div>
-                <div class="mock-divider"></div>
-                <div class="mock-toolbar">
-                    <span class="mock-toolbar-btn">&#9881; Settings</span>
-                    <span class="mock-toolbar-btn">&#8634; Share</span>
-                    <span class="mock-toolbar-btn">&#8635; Refresh</span>
-                    <span class="mock-toolbar-btn">&#9211; Quit</span>
-                </div>
+      <!-- App mockups -->
+      <div class="mockups-section reveal reveal-delay-2">
+
+        <!-- Popover -->
+        <div class="mock-popover">
+          <div class="mock-pop-body">
+            <div class="mock-big-row">
+              <div>
+                <span class="mock-pct-num">65</span><span class="mock-pct-sym">%</span>
+              </div>
+              <div class="mock-reset-col">
+                <div class="mock-reset-label">RESETS IN</div>
+                <div class="mock-reset-time">1h 42m</div>
+              </div>
             </div>
 
-            <!-- Settings / History -->
-            <div class="mock-settings">
-                <div class="mock-settings-titlebar">
-                    <div class="mock-traffic" style="background: #ff5f57;"></div>
-                    <div class="mock-traffic" style="background: #febc2e;"></div>
-                    <div class="mock-traffic" style="background: #28c840;"></div>
-                    <span style="flex: 1; text-align: center; font-size: 12px; color: var(--text-secondary); margin-right: 48px;">ClaudeMeter Pro — Settings</span>
-                </div>
-                <div class="mock-settings-body">
-                    <div class="mock-tab-bar">
-                        <div class="mock-tab">General</div>
-                        <div class="mock-tab active">History</div>
-                        <div class="mock-tab">About</div>
-                    </div>
-                    <div class="mock-range-picker">
-                        <div class="mock-range">5h</div>
-                        <div class="mock-range active">24h</div>
-                        <div class="mock-range">7d</div>
-                        <div class="mock-range">30d</div>
-                        <div class="mock-range">90d</div>
-                    </div>
-                    <div class="mock-chart">
-                        <svg viewBox="0 0 400 120" preserveAspectRatio="none">
-                            <defs>
-                                <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stop-color="rgba(222,143,87,0.2)"/>
-                                    <stop offset="100%" stop-color="rgba(222,143,87,0)"/>
-                                </linearGradient>
-                                <linearGradient id="lg" x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0%" stop-color="var(--teal)"/>
-                                    <stop offset="50%" stop-color="var(--amber)"/>
-                                    <stop offset="100%" stop-color="var(--coral)"/>
-                                </linearGradient>
-                            </defs>
-                            <path d="M0,90 C30,85 60,70 100,65 C140,60 160,40 200,35 C240,30 260,50 300,55 C340,60 370,45 400,30 L400,120 L0,120 Z" fill="url(#cg)"/>
-                            <path d="M0,90 C30,85 60,70 100,65 C140,60 160,40 200,35 C240,30 260,50 300,55 C340,60 370,45 400,30" fill="none" stroke="url(#lg)" stroke-width="2.5"/>
-                            <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/>
-                            <line x1="0" y1="60" x2="400" y2="60" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/>
-                            <line x1="0" y1="90" x2="400" y2="90" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/>
-                        </svg>
-                    </div>
-                    <div class="mock-chart-labels">
-                        <span>12:00 AM</span><span>6:00 AM</span><span>12:00 PM</span><span>6:00 PM</span><span>Now</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 8px;">
-                        <span style="font-size: 11px; font-weight: 600; color: var(--text-secondary);">Activity</span>
-                    </div>
-                    <div class="mock-heatmap">
-                        <div class="mock-heat-cell" style="background: rgba(255,255,255,0.04);"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.3;"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.5;"></div>
-                        <div class="mock-heat-cell" style="background: var(--amber); opacity: 0.4;"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.6;"></div>
-                        <div class="mock-heat-cell" style="background: rgba(255,255,255,0.04);"></div>
-                        <div class="mock-heat-cell" style="background: var(--amber); opacity: 0.7;"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.4;"></div>
-                        <div class="mock-heat-cell" style="background: var(--coral); opacity: 0.5;"></div>
-                        <div class="mock-heat-cell" style="background: var(--amber); opacity: 0.6;"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.3;"></div>
-                        <div class="mock-heat-cell" style="background: var(--amber); opacity: 0.8;"></div>
-                        <div class="mock-heat-cell" style="background: rgba(255,255,255,0.04);"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.5;"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.2;"></div>
-                        <div class="mock-heat-cell" style="background: var(--amber); opacity: 0.5;"></div>
-                        <div class="mock-heat-cell" style="background: var(--coral); opacity: 0.6;"></div>
-                        <div class="mock-heat-cell" style="background: var(--amber); opacity: 0.4;"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.7;"></div>
-                        <div class="mock-heat-cell" style="background: rgba(255,255,255,0.04);"></div>
-                        <div class="mock-heat-cell" style="background: var(--amber); opacity: 0.3;"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.6;"></div>
-                        <div class="mock-heat-cell" style="background: var(--amber); opacity: 0.5;"></div>
-                        <div class="mock-heat-cell" style="background: var(--coral); opacity: 0.7;"></div>
-                        <div class="mock-heat-cell" style="background: var(--amber); opacity: 0.6;"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.4;"></div>
-                        <div class="mock-heat-cell" style="background: rgba(255,255,255,0.04);"></div>
-                        <div class="mock-heat-cell" style="background: var(--teal); opacity: 0.5;"></div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 10px; color: var(--text-dim);">247 snapshots recorded</span>
-                        <div style="padding: 4px 12px; border-radius: 6px; background: rgba(222,143,87,0.12); color: var(--amber); font-size: 11px; font-weight: 600;">Export CSV</div>
-                    </div>
-                </div>
+            <div class="mock-bar-section">
+              <div class="mock-bar-head">
+                <span class="mock-bar-lbl">5-hour session</span>
+                <span class="mock-bar-val" style="color: var(--amber);">65%</span>
+              </div>
+              <div class="mock-bar-track">
+                <div class="mock-bar-fill" style="width: 65%; background: linear-gradient(90deg, var(--teal), var(--amber));"></div>
+              </div>
+              <div class="mock-predict">Limit in ~2h 15m</div>
             </div>
+
+            <div class="mock-bar-section">
+              <div class="mock-bar-head">
+                <span class="mock-bar-lbl">Daily</span>
+                <span class="mock-bar-val" style="color: var(--teal);">28%</span>
+              </div>
+              <div class="mock-bar-track">
+                <div class="mock-bar-fill" style="width: 28%; background: var(--teal);"></div>
+              </div>
+            </div>
+
+            <div class="mock-bar-section">
+              <div class="mock-bar-head">
+                <span class="mock-bar-lbl">Weekly</span>
+                <span class="mock-bar-val" style="color: var(--teal);">12%</span>
+              </div>
+              <div class="mock-bar-track">
+                <div class="mock-bar-fill" style="width: 12%; background: var(--teal);"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mock-sep"></div>
+          <div class="mock-toolbar">
+            <!-- Settings -->
+            <div class="mock-tool-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span class="mock-tool-lbl">Settings</span>
+            </div>
+            <!-- Share -->
+            <div class="mock-tool-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              <span class="mock-tool-lbl">Share</span>
+            </div>
+            <!-- Refresh -->
+            <div class="mock-tool-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              <span class="mock-tool-lbl">Refresh</span>
+            </div>
+            <!-- Quit -->
+            <div class="mock-tool-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              <span class="mock-tool-lbl">Quit</span>
+            </div>
+          </div>
         </div>
-    </div>
+
+        <!-- Settings / History panel -->
+        <div class="mock-settings">
+          <div class="mock-titlebar">
+            <div class="mock-traffic" style="background: #ff5f57;"></div>
+            <div class="mock-traffic" style="background: #febc2e;"></div>
+            <div class="mock-traffic" style="background: #28c840;"></div>
+            <span class="mock-titlebar-label">ClaudeMeter Pro &mdash; Settings</span>
+          </div>
+          <div class="mock-settings-body">
+            <div class="mock-tabs">
+              <div class="mock-tab">General</div>
+              <div class="mock-tab active">History</div>
+              <div class="mock-tab">About</div>
+            </div>
+            <div class="mock-range-row">
+              <div class="mock-range">5h</div>
+              <div class="mock-range active">24h</div>
+              <div class="mock-range">7d</div>
+              <div class="mock-range">30d</div>
+              <div class="mock-range">90d</div>
+            </div>
+            <div class="mock-chart-wrap">
+              <svg viewBox="0 0 420 116" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="rgba(222,143,87,0.22)"/>
+                    <stop offset="100%" stop-color="rgba(222,143,87,0)"/>
+                  </linearGradient>
+                  <linearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="rgb(89,191,166)"/>
+                    <stop offset="50%" stop-color="rgb(222,143,87)"/>
+                    <stop offset="100%" stop-color="rgb(235,115,89)"/>
+                  </linearGradient>
+                </defs>
+                <!-- grid lines at 25% 50% 75% -->
+                <line x1="0" y1="29" x2="420" y2="29" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+                <line x1="0" y1="58" x2="420" y2="58" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+                <line x1="0" y1="87" x2="420" y2="87" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+                <path d="M0,92 C30,88 55,74 90,68 C125,62 145,42 185,36 C225,30 248,52 285,56 C322,60 360,40 420,24 L420,116 L0,116 Z" fill="url(#chartFill)"/>
+                <path d="M0,92 C30,88 55,74 90,68 C125,62 145,42 185,36 C225,30 248,52 285,56 C322,60 360,40 420,24" fill="none" stroke="url(#chartLine)" stroke-width="2.2"/>
+              </svg>
+            </div>
+            <div class="mock-chart-labels">
+              <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>Now</span>
+            </div>
+            <div class="mock-activity-label">Activity</div>
+            <div class="mock-heatmap">
+              <!-- 5 rows × 14 cols = 70 cells -->
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.28"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.5"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.4"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.62"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.72"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.38"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.5"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.6"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.3"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.8"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.45"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.22"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.5"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.6"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.42"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.7"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.35"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.6"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.55"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.7"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.62"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.4"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.5"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.34"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.42"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.68"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.58"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.44"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.75"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.35"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.55"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.66"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.32"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.48"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.55"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.6"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.4"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.38"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.7"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.46"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.52"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.36"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.64"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.54"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.42"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.48"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.78"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.34"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.62"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.38"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.72"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.44"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.56"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.68"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.52"></div>
+              <div class="mock-heat-cell" style="background:var(--teal);opacity:.4"></div>
+              <div class="mock-heat-cell" style="background:var(--amber);opacity:.82"></div>
+              <div class="mock-heat-cell" style="background:rgba(255,255,255,0.04)"></div>
+              <div class="mock-heat-cell" style="background:var(--coral);opacity:.44"></div>
+            </div>
+            <div class="mock-footer-row">
+              <span class="mock-snap-count">247 snapshots recorded</span>
+              <div class="mock-export-btn">Export CSV</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /mockups-section -->
+    </div><!-- /hero-content -->
+  </div>
 </section>
 
-<!-- Features -->
+<!-- ── FEATURES ── -->
 <section class="features" id="features">
-    <div class="container">
-        <div class="section-header">
-            <div class="section-label">Features</div>
-            <h2>Everything you need, nothing you don't.</h2>
-        </div>
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">&#127912;</div>
-                <h3>9 Menu Bar Styles</h3>
-                <p>Ring, pill, pulse dot, battery, circular, gauge, segments, dual bar, and minimal text. Pick what fits your vibe.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">&#128202;</div>
-                <h3>Usage History & Charts</h3>
-                <p>Interactive line charts with color-coded segments. View 5 hours to 90 days of usage data with activity heatmaps.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">&#128276;</div>
-                <h3>Smart Notifications</h3>
-                <p>Get alerted at 75%, 90%, and 100% usage. Configurable thresholds with automatic session-reset detection.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">&#9889;</div>
-                <h3>Usage Predictions</h3>
-                <p>See estimated time until limit based on your current consumption rate. Plan your prompts accordingly.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">&#128274;</div>
-                <h3>Private & Secure</h3>
-                <p>Session key in macOS Keychain. No analytics, no telemetry, no server. History stored locally in SQLite.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">&#9000;</div>
-                <h3>Keyboard Shortcut</h3>
-                <p>Cmd+Shift+U toggles the popover instantly. Share your stats as a branded PNG with one click.</p>
-            </div>
-        </div>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Features</div>
+      <h2>Everything you need,<br>nothing you don't.</h2>
     </div>
+    <div class="features-grid">
+
+      <!-- 1 — 9 Styles -->
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="17" r="2.5"/><circle cx="6" cy="17" r="2.5"/>
+            <path d="M12 22V12"/><path d="M12 12 6 8"/><path d="M12 12l6-4"/>
+          </svg>
+        </div>
+        <h3>9 Menu Bar Styles</h3>
+        <p>Ring, pill, pulse dot, battery, circular, gauge, segments, dual bar, and minimal text. Pick what fits your workflow.</p>
+      </div>
+
+      <!-- 2 — History -->
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
+          </svg>
+        </div>
+        <h3>Usage History &amp; Charts</h3>
+        <p>Interactive line charts with color-coded segments. View 5 hours to 90 days of data with activity heatmaps.</p>
+      </div>
+
+      <!-- 3 — Notifications -->
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+        </div>
+        <h3>Smart Notifications</h3>
+        <p>Alerts at 75%, 90%, and 100%. Configurable thresholds with automatic session-reset detection.</p>
+      </div>
+
+      <!-- 4 — Predictions -->
+      <div class="feature-card reveal reveal-delay-4">
+        <div class="feature-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+        </div>
+        <h3>Usage Predictions</h3>
+        <p>Estimated time until limit based on current consumption rate. Plan your prompts before hitting the wall.</p>
+      </div>
+
+      <!-- 5 — Private & Secure -->
+      <div class="feature-card reveal reveal-delay-5">
+        <div class="feature-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <h3>Private &amp; Secure</h3>
+        <p>Session key stored in macOS Keychain. No analytics, no telemetry, no server. History lives locally in SQLite.</p>
+      </div>
+
+      <!-- 6 — Keyboard -->
+      <div class="feature-card reveal reveal-delay-6">
+        <div class="feature-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          </svg>
+        </div>
+        <h3>Keyboard Shortcut</h3>
+        <p>Cmd+Shift+U toggles the popover instantly from anywhere. Share your stats as a branded PNG in one click.</p>
+      </div>
+
+    </div>
+  </div>
 </section>
 
-<!-- Styles showcase -->
-<section class="styles">
-    <div class="container">
-        <div class="section-header">
-            <div class="section-label">Menu Bar Styles</div>
-            <h2>Your menu bar, your way.</h2>
-        </div>
-        <div class="styles-row">
-            <span class="style-chip">&#11044; Ring</span>
-            <span class="style-chip">&#9645; Pill</span>
-            <span class="style-chip">&#128994; Pulse Dot</span>
-            <span class="style-chip">&#9889; Battery</span>
-            <span class="style-chip">&#9711; Circular</span>
-            <span class="style-chip">&#128200; Segments</span>
-            <span class="style-chip">&#9632; Dual Bar</span>
-            <span class="style-chip">&#128376; Gauge</span>
-            <span class="style-chip">Aa Minimal</span>
-        </div>
+<!-- ── STYLES SHOWCASE ── -->
+<section class="styles-section">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Menu Bar Styles</div>
+      <h2>Your menu bar, your way.</h2>
     </div>
+    <div class="styles-chips reveal reveal-delay-1">
+      <span class="style-chip">Ring</span>
+      <span class="style-chip">Pill</span>
+      <span class="style-chip">Pulse Dot</span>
+      <span class="style-chip">Battery</span>
+      <span class="style-chip">Circular</span>
+      <span class="style-chip">Gauge</span>
+      <span class="style-chip">Segments</span>
+      <span class="style-chip">Dual Bar</span>
+      <span class="style-chip">Minimal</span>
+    </div>
+  </div>
 </section>
 
-<!-- Pricing -->
+<!-- ── PRICING ── -->
 <section class="pricing" id="pricing">
-    <div class="container">
-        <div class="section-header">
-            <div class="section-label">Pricing</div>
-            <h2>One dollar, no subscriptions.</h2>
-        </div>
-        <div class="pricing-card">
-            <div class="label">ClaudeMeter Pro</div>
-            <div class="price">$1</div>
-            <div class="price-note">One-time purchase. Free updates forever.</div>
-            <ul class="pricing-features">
-                <li><span class="check">&#10003;</span> All 9 menu bar styles</li>
-                <li><span class="check">&#10003;</span> Usage history, charts & heatmaps</li>
-                <li><span class="check">&#10003;</span> Smart notifications & predictions</li>
-                <li><span class="check">&#10003;</span> CSV export & shareable stats</li>
-                <li><span class="check">&#10003;</span> Secure Keychain storage</li>
-                <li><span class="check">&#10003;</span> All future updates included</li>
-            </ul>
-            <!-- Replace with your Gumroad product link -->
-            <a href="https://prxveen.gumroad.com/l/claudemeter" class="btn-buy">Buy Now — $1 &rarr;</a>
-        </div>
-        <div class="install-note">
-            <strong>Installation note:</strong> After downloading the DMG, drag ClaudeMeter Pro to your Applications folder.
-            On first launch, right-click the app and select <strong>Open</strong> (macOS requires this for apps
-            downloaded outside the App Store). You only need to do this once.
-        </div>
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">Pricing</div>
+      <h2>One dollar, no subscriptions.</h2>
     </div>
+    <div class="pricing-card reveal reveal-delay-1">
+      <div class="pricing-label">ClaudeMeter Pro</div>
+      <div class="price-num">$1</div>
+      <div class="price-sub">One-time purchase. Free updates forever.</div>
+      <ul class="pricing-list">
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          All 9 menu bar styles
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Usage history, charts &amp; heatmaps
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Smart notifications &amp; usage predictions
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          CSV export &amp; shareable stats PNG
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Secure macOS Keychain storage
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          All future updates included
+        </li>
+      </ul>
+      <a href="https://prxveen.gumroad.com/l/claudemeter" class="btn-buy" target="_blank">Buy Now &mdash; $1 &rarr;</a>
+    </div>
+    <div class="install-card reveal reveal-delay-2">
+      <strong>Installation note:</strong> After downloading the DMG, drag ClaudeMeter Pro to your Applications folder.
+      On first launch, right-click the app and choose <strong>Open</strong> (macOS requires this for apps downloaded
+      outside the App Store). You only need to do this once.
+    </div>
+  </div>
 </section>
 
-<!-- Footer -->
+<!-- ── FOOTER ── -->
 <footer>
-    <div class="container">
-        <p>Built by <a href="https://prxveen.work" target="_blank">Prxveen.work</a></p>
-    </div>
+  <div class="container">
+    <p>Built by <a href="https://prxveen.work" target="_blank" rel="noopener">Prxveen.work</a></p>
+  </div>
 </footer>
 
+<script>
+  // Scroll-triggered reveal via IntersectionObserver
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+  );
+  document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+</script>
 </body>
 </html>
