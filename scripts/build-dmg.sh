@@ -82,17 +82,21 @@ PLIST
 
 # Step 4: Code signing (optional)
 if [ -n "${DEVELOPER_ID:-}" ]; then
-    echo "[4/5] Code signing with: $DEVELOPER_ID"
-    codesign --force --deep --sign "$DEVELOPER_ID" \
+    echo "[4/6] Code signing with: $DEVELOPER_ID"
+    codesign --force --options runtime --deep --sign "$DEVELOPER_ID" \
         --entitlements "$PROJECT_ROOT/ClaudeMeterPro/ClaudeMeterPro.entitlements" \
+        --timestamp \
         "$APP_BUNDLE"
+    echo "      Verifying signature..."
+    codesign --verify --deep --strict "$APP_BUNDLE"
+    echo "      Signature valid."
 else
-    echo "[4/5] Skipping code signing (set DEVELOPER_ID env var to sign)"
+    echo "[4/6] Skipping code signing (set DEVELOPER_ID env var to sign)"
     echo "      Unsigned apps: users must right-click > Open on first launch"
 fi
 
 # Step 5: Create DMG
-echo "[5/5] Creating DMG..."
+echo "[5/6] Creating DMG..."
 STAGING=$(mktemp -d)
 cp -R "$APP_BUNDLE" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
@@ -108,6 +112,33 @@ hdiutil create -volname "$DISPLAY_NAME" \
 rm -rf "$STAGING"
 rm -rf "$APP_BUNDLE"
 
+# Step 6: Notarization (optional — requires APPLE_ID, TEAM_ID, and APP_PASSWORD)
+if [ -n "${DEVELOPER_ID:-}" ] && [ -n "${APPLE_ID:-}" ] && [ -n "${TEAM_ID:-}" ]; then
+    echo "[6/6] Submitting for notarization..."
+    if [ -n "${APP_PASSWORD:-}" ]; then
+        NOTARY_OUTPUT=$(xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$TEAM_ID" \
+            --password "$APP_PASSWORD" \
+            --wait 2>&1)
+        echo "$NOTARY_OUTPUT"
+        if echo "$NOTARY_OUTPUT" | grep -q "status: Accepted"; then
+            echo "      Stapling notarization ticket..."
+            xcrun stapler staple "$DMG_PATH"
+            echo "      Notarization complete. DMG is ready for distribution."
+        else
+            echo "      Notarization failed. Check output above."
+            exit 1
+        fi
+    else
+        echo "      APP_PASSWORD not set. Use an app-specific password from appleid.apple.com"
+        echo "      Or store in keychain: xcrun notarytool store-credentials"
+        echo "      Then: xcrun notarytool submit \"$DMG_PATH\" --keychain-profile \"notary-profile\" --wait"
+    fi
+else
+    echo "[6/6] Skipping notarization (requires DEVELOPER_ID, APPLE_ID, TEAM_ID, APP_PASSWORD)"
+fi
+
 # Summary
 DMG_SIZE=$(du -h "$DMG_PATH" | cut -f1 | xargs)
 echo ""
@@ -115,8 +146,19 @@ echo "=== Done! ==="
 echo "  DMG: $DMG_PATH"
 echo "  Size: $DMG_SIZE"
 echo "  Version: v${VERSION}"
+if [ -n "${DEVELOPER_ID:-}" ]; then
+    echo "  Signed: Yes"
+    if [ -n "${APPLE_ID:-}" ] && [ -n "${TEAM_ID:-}" ]; then
+        echo "  Notarized: Yes"
+    else
+        echo "  Notarized: No (set APPLE_ID, TEAM_ID, APP_PASSWORD)"
+    fi
+else
+    echo "  Signed: No (set DEVELOPER_ID)"
+fi
 echo ""
-echo "Next steps:"
-echo "  1. Test: open \"$DMG_PATH\""
-echo "  2. Code sign: DEVELOPER_ID=\"Developer ID Application: Your Name\" bash $0"
-echo "  3. Notarize: xcrun notarytool submit \"$DMG_PATH\" --apple-id YOUR_ID --team-id YOUR_TEAM"
+echo "Environment variables for full signing + notarization:"
+echo "  DEVELOPER_ID=\"Developer ID Application: Your Name (TEAM_ID)\""
+echo "  APPLE_ID=\"your@email.com\""
+echo "  TEAM_ID=\"YOUR_TEAM_ID\""
+echo "  APP_PASSWORD=\"app-specific-password-from-appleid.apple.com\""
