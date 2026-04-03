@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "name": "Debug ClaudeMeterPro",
+            "target": "ClaudeMeterPro",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug ClaudeMeterPro"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "name": "Release ClaudeMeterPro",
+            "target": "ClaudeMeterPro",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release ClaudeMeterPro"
+        }
+    ]
+}
