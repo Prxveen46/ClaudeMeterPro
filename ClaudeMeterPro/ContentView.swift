@@ -4,6 +4,8 @@ struct ContentView: View {
     @ObservedObject var usageStore: UsageStore
 
     @State private var animatedPercent: CGFloat = 0
+    @State private var animatedDaily: CGFloat = 0
+    @State private var animatedWeekly: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -102,6 +104,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             if let info = usageStore.usageInfo {
                 VStack(spacing: 14) {
+                    // ── Hero: session percentage + reset countdown ──
                     HStack(alignment: .firstTextBaseline) {
                         Text("\(info.usagePercentInt)")
                             .font(.system(size: 44, weight: .bold, design: .rounded))
@@ -114,33 +117,67 @@ struct ContentView: View {
                         countdownBadge
                     }
 
-                    progressBar(percent: info.usagePercentInt)
+                    // ── 5-hour session bar ──
+                    usageRow(
+                        label: "5-hour session",
+                        percent: info.usagePercentInt,
+                        animated: animatedPercent
+                    )
 
-                    HStack {
-                        Text("5-hour session usage")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.tertiary)
-                        Spacer()
-                        if usageStore.lastError != nil {
-                            HStack(spacing: 3) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 9))
-                                Text("Retrying...")
-                                    .font(.system(size: 10))
-                            }
-                            .foregroundStyle(.orange)
+                    // ── Daily bar (if available) ──
+                    if let daily = info.daily {
+                        usageRow(
+                            label: "Daily",
+                            percent: daily.percentInt,
+                            animated: animatedDaily
+                        )
+                    }
+
+                    // ── Weekly bar (if available) ──
+                    if let weekly = info.weekly {
+                        usageRow(
+                            label: "Weekly",
+                            percent: weekly.percentInt,
+                            animated: animatedWeekly
+                        )
+                        if let resetDate = weekly.resetDate, resetDate > Date() {
+                            weeklyResetLabel(resetDate)
                         }
+                    }
+
+                    // ── Retry indicator ──
+                    if usageStore.lastError != nil {
+                        HStack(spacing: 3) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 9))
+                            Text("Retrying...")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                 }
                 .padding(16)
                 .onAppear {
                     withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
                         animatedPercent = CGFloat(info.usagePercentInt)
+                        animatedDaily = CGFloat(info.daily?.percentInt ?? 0)
+                        animatedWeekly = CGFloat(info.weekly?.percentInt ?? 0)
                     }
                 }
                 .onChange(of: info.usagePercentInt) { newVal in
                     withAnimation(.easeInOut(duration: 0.4)) {
                         animatedPercent = CGFloat(newVal)
+                    }
+                }
+                .onChange(of: info.daily?.percentInt) { newVal in
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        animatedDaily = CGFloat(newVal ?? 0)
+                    }
+                }
+                .onChange(of: info.weekly?.percentInt) { newVal in
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        animatedWeekly = CGFloat(newVal ?? 0)
                     }
                 }
             } else if usageStore.isLoading {
@@ -191,9 +228,48 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Weekly Reset Label
+
+    private func weeklyResetLabel(_ resetDate: Date) -> some View {
+        let remaining = resetDate.timeIntervalSinceNow
+        let days = Int(remaining) / 86400
+        let hours = (Int(remaining) % 86400) / 3600
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, MMM d 'at' h:mm a"
+
+        return HStack(spacing: 4) {
+            Image(systemName: "arrow.trianglehead.counterclockwise.rotate.90")
+                .font(.system(size: 8))
+            Text("Resets \(formatter.string(from: resetDate))")
+                .font(.system(size: 10))
+            Text("(\(days)d \(hours)h)")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+        }
+        .foregroundStyle(.tertiary)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    // MARK: - Usage Row (label + bar + percentage)
+
+    private func usageRow(label: String, percent: Int, animated: CGFloat) -> some View {
+        VStack(spacing: 4) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                Spacer()
+                Text("\(percent)%")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(ClaudeTheme.usageColor(percent: percent))
+            }
+            progressBar(percent: percent, animated: animated)
+        }
+    }
+
     // MARK: - Progress Bar
 
-    private func progressBar(percent: Int) -> some View {
+    private func progressBar(percent: Int, animated: CGFloat) -> some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule()
@@ -201,18 +277,18 @@ struct ContentView: View {
 
                 Capsule()
                     .fill(ClaudeTheme.usageGradient(percent: percent))
-                    .frame(width: max(0, geo.size.width * animatedPercent / 100))
+                    .frame(width: max(0, geo.size.width * animated / 100))
                     .shadow(
                         color: ClaudeTheme.usageColor(percent: percent).opacity(0.45),
                         radius: 6, x: 0, y: 0
                     )
 
-                if animatedPercent > 2 {
+                if animated > 2 {
                     Circle()
                         .fill(Color.white.opacity(0.6))
                         .frame(width: 6, height: 6)
                         .blur(radius: 2)
-                        .offset(x: max(0, geo.size.width * animatedPercent / 100 - 6))
+                        .offset(x: max(0, geo.size.width * animated / 100 - 6))
                 }
             }
         }

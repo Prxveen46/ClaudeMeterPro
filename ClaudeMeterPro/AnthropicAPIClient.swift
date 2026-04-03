@@ -6,11 +6,28 @@ private let logger = Logger(subsystem: "com.claudemeterpro", category: "APIClien
 
 // MARK: - Models
 
+struct UsageTier {
+    let percent: Double             // 0.0 - 1.0
+    let resetDate: Date?            // absolute reset time
+    var percentInt: Int { min(100, Int(percent * 100)) }
+}
+
 struct UsageInfo {
-    let sessionPercent: Double       // 0.0 - 1.0
+    let sessionPercent: Double       // 0.0 - 1.0  (5-hour or primary)
     let sessionResetDate: Date?      // absolute reset time
 
+    // Additional tiers (nil if API doesn't return them)
+    let daily: UsageTier?
+    let weekly: UsageTier?
+
     var usagePercentInt: Int { min(100, Int(sessionPercent * 100)) }
+
+    init(sessionPercent: Double, sessionResetDate: Date?, daily: UsageTier? = nil, weekly: UsageTier? = nil) {
+        self.sessionPercent = sessionPercent
+        self.sessionResetDate = sessionResetDate
+        self.daily = daily
+        self.weekly = weekly
+    }
 }
 
 enum APIError: Error, LocalizedError {
@@ -198,11 +215,19 @@ class ClaudeAPIClient: NSObject {
             throw APIError.parseError("Failed to parse usage JSON")
         }
 
+        // Dump raw JSON to a temp file for debugging the response structure
+        if let prettyData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]),
+           let prettyStr = String(data: prettyData, encoding: .utf8) {
+            try? prettyStr.write(toFile: "/tmp/claudemeter_usage_response.json", atomically: true, encoding: .utf8)
+            logger.info("Usage response dumped to /tmp/claudemeter_usage_response.json")
+        }
+        logger.info("Usage response keys: \(Array(json.keys).sorted())")
+
         guard let info = parseUsage(json) else {
-            throw APIError.parseError("Unexpected usage response format")
+            throw APIError.parseError("Unexpected usage response format — keys: \(Array(json.keys))")
         }
 
-        logger.info("Usage: \(info.usagePercentInt)%")
+        logger.info("Usage: session=\(info.usagePercentInt)% daily=\(info.daily?.percentInt ?? -1)% weekly=\(info.weekly?.percentInt ?? -1)%")
         return info
     }
 
@@ -309,27 +334,47 @@ class ClaudeAPIClient: NSObject {
 
     // MARK: - Parse Usage
 
+    private func parseTier(_ dict: [String: Any]) -> UsageTier? {
+        guard let utilization = dict["utilization"] as? Double else { return nil }
+        return UsageTier(
+            percent: utilization / 100.0,
+            resetDate: parseISO8601(dict["resets_at"] as? String)
+        )
+    }
+
     private func parseUsage(_ dict: [String: Any]) -> UsageInfo? {
-        if let fiveHour = dict["five_hour"] as? [String: Any],
-           let utilization = fiveHour["utilization"] as? Double {
+        // Parse known tiers from the API response
+        let fiveHourTier = (dict["five_hour"] as? [String: Any]).flatMap { parseTier($0) }
+        let sevenDayTier = (dict["seven_day"] as? [String: Any]).flatMap { parseTier($0) }
+        let dailyTier = (dict["daily"] as? [String: Any]).flatMap { parseTier($0) }
+
+        // Primary: five_hour session > root-level > daily
+        if let session = fiveHourTier {
             return UsageInfo(
-                sessionPercent: utilization / 100.0,
-                sessionResetDate: parseISO8601(fiveHour["resets_at"] as? String)
+                sessionPercent: session.percent,
+                sessionResetDate: session.resetDate,
+                daily: dailyTier,
+                weekly: sevenDayTier
             )
         }
 
+        // Root-level utilization (flat response format)
         if let utilization = dict["utilization"] as? Double {
             return UsageInfo(
                 sessionPercent: utilization / 100.0,
-                sessionResetDate: parseISO8601(dict["resets_at"] as? String)
+                sessionResetDate: parseISO8601(dict["resets_at"] as? String),
+                daily: dailyTier,
+                weekly: sevenDayTier
             )
         }
 
-        if let daily = dict["daily"] as? [String: Any],
-           let utilization = daily["utilization"] as? Double {
+        // Fall back to daily as primary
+        if let daily = dailyTier {
             return UsageInfo(
-                sessionPercent: utilization / 100.0,
-                sessionResetDate: parseISO8601(daily["resets_at"] as? String)
+                sessionPercent: daily.percent,
+                sessionResetDate: daily.resetDate,
+                daily: daily,
+                weekly: sevenDayTier
             )
         }
 
