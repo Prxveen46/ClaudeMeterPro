@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClaudeMeter Pro — Track Your Claude Usage From the Menu Bar</title>
+    <meta name="description" content="Know exactly how much Claude you have left. A beautiful macOS menu bar app that tracks your Claude.ai usage in real time.">
+    <style>
+        :root {
+            --amber: rgb(222, 143, 87);
+            --amber-light: rgb(240, 184, 133);
+            --amber-dark: rgb(184, 107, 56);
+            --teal: rgb(89, 191, 166);
+            --coral: rgb(235, 115, 89);
+            --bg: #0a0a0c;
+            --bg-card: #141418;
+            --bg-elevated: #1c1c22;
+            --text: #f0ece8;
+            --text-secondary: #9a958f;
+            --border: rgba(255, 255, 255, 0.06);
+            --radius: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        a { color: var(--amber); text-decoration: none; }
+        a:hover { color: var(--amber-light); }
+
+        .container {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Nav */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            padding: 16px 0;
+            background: rgba(10, 10, 12, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        nav .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-brand {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-brand .icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--amber-light), var(--amber));
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .nav-links { display: flex; gap: 28px; align-items: center; }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover { color: var(--text); }
+
+        .nav-cta {
+            background: var(--amber) !important;
+            color: #000 !important;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px !important;
+            transition: background 0.2s;
+        }
+
+        .nav-cta:hover { background: var(--amber-light) !important; }
+
+        /* Hero */
+        .hero {
+            padding: 160px 0 100px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(222, 143, 87, 0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--amber-light), var(--amber-dark));
+            border-radius: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin-bottom: 32px;
+            box-shadow: 0 20px 60px rgba(222, 143, 87, 0.25);
+            position: relative;
+        }
+
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 span { color: var(--amber); }
+
+        .hero p {
+            font-size: 20px;
+            color: var(--text-secondary);
+            max-width: 520px;
+            margin: 0 auto 40px;
+            line-height: 1.5;
+        }
+
+        .hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 32px;
+            background: var(--amber);
+            color: #000;
+            font-size: 16px;
+            font-weight: 700;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: var(--amber-light);
+            transform: translateY(-1px);
+            box-shadow: 0 8px 30px rgba(222, 143, 87, 0.3);
+            color: #000;
+        }
+
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            background: var(--bg-elevated);
+            color: var(--text);
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: #242430;
+            border-color: rgba(255, 255, 255, 0.12);
+            color: var(--text);
+        }
+
+        .hero-note {
+            margin-top: 20px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
+        /* Screenshot placeholder */
+        .screenshot {
+            margin: 60px auto 0;
+            max-width: 700px;
+            aspect-ratio: 16/10;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screenshot::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(222, 143, 87, 0.03), transparent 60%);
+        }
+
+        /* Features */
+        .features {
+            padding: 100px 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-label {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--amber);
+            margin-bottom: 12px;
+        }
+
+        .section-header h2 {
+            font-size: clamp(28px, 4vw, 40px);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .feature-card {
+            padding: 28px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(222, 143, 87, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            font-size: 28px;
+            margin-bottom: 16px;
+        }
+
+        .feature-card h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Styles showcase */
+        .styles {
+            padding: 80px 0;
+        }
+
+        .styles-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 40px;
+        }
+
+        .style-chip {
+            padding: 10px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+
+        .style-chip:hover {
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+
+        /* Pricing */
+        .pricing {
+            padding: 100px 0;
+        }
+
+        .pricing-card {
+            max-width: 440px;
+            margin: 0 auto;
+            padding: 40px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pricing-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--amber-dark), var(--amber), var(--amber-light));
+        }
+
+        .pricing-card .label {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--amber);
+            margin-bottom: 8px;
+        }
+
+        .price {
+            font-size: 56px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin: 8px 0;
+        }
+
+        .price-note {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+        }
+
+        .pricing-features {
+            list-style: none;
+            text-align: left;
+            margin-bottom: 32px;
+        }
+
+        .pricing-features li {
+            padding: 10px 0;
+            font-size: 15px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .pricing-features li:last-child { border-bottom: none; }
+
+        .pricing-features .check {
+            color: var(--teal);
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .btn-buy {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background: var(--amber);
+            color: #000;
+            font-size: 16px;
+            font-weight: 700;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .btn-buy:hover {
+            background: var(--amber-light);
+            color: #000;
+        }
+
+        /* Gatekeeper note */
+        .install-note {
+            max-width: 600px;
+            margin: 40px auto 0;
+            padding: 20px 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        .install-note strong { color: var(--text); }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+        }
+
+        footer p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        footer a { color: var(--amber); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links a:not(.nav-cta) { display: none; }
+
+            .hero { padding: 130px 0 60px; }
+
+            .pricing-card { padding: 28px; }
+        }
+
+        @media (max-width: 480px) {
+            .hero-actions { flex-direction: column; align-items: center; }
+            .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
+        }
+
+        /* Smooth scroll */
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+    <div class="container">
+        <div class="nav-brand">
+            <div class="icon">&#9889;</div>
+            ClaudeMeter Pro
+        </div>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#pricing" class="nav-cta">Get It Now</a>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="container">
+        <div class="hero-icon">&#9889;</div>
+        <h1>Know exactly how much<br><span>Claude</span> you have left.</h1>
+        <p>A beautiful macOS menu bar app that tracks your Claude.ai session, daily, and weekly usage in real time.</p>
+        <div class="hero-actions">
+            <!-- Replace YOUR_STORE_URL with your Gumroad or Lemon Squeezy link -->
+            <a href="#pricing" class="btn-primary">&#11015; Download for macOS</a>
+            <a href="#features" class="btn-secondary">See Features</a>
+        </div>
+        <p class="hero-note">Requires macOS 13 Ventura or later</p>
+
+        <div class="screenshot">
+            <!-- Replace this with an actual screenshot: <img src="screenshot.png" alt="ClaudeMeter Pro" style="width:100%;border-radius:16px"> -->
+            Add a screenshot of ClaudeMeter Pro here
+        </div>
+    </div>
+</section>
+
+<!-- Features -->
+<section class="features" id="features">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-label">Features</div>
+            <h2>Everything you need, nothing you don't.</h2>
+        </div>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">&#127912;</div>
+                <h3>9 Menu Bar Styles</h3>
+                <p>Ring, pill, pulse dot, battery, circular, gauge, segments, dual bar, and minimal text. Pick what fits your vibe.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">&#9889;</div>
+                <h3>Real-Time Tracking</h3>
+                <p>Live usage percentage and countdown timer. Always know where you stand before your next prompt.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">&#128202;</div>
+                <h3>Session, Daily & Weekly</h3>
+                <p>Animated progress bars for every usage tier. See your 5-hour session, daily, and weekly limits at a glance.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">&#128274;</div>
+                <h3>Keychain Security</h3>
+                <p>Your session key is stored in the macOS Keychain. Never saved in plain text, never leaves your machine.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">&#127749;</div>
+                <h3>Launch at Login</h3>
+                <p>Start tracking automatically when your Mac boots. One toggle, zero friction.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">&#129302;</div>
+                <h3>Lightweight & Private</h3>
+                <p>No analytics, no telemetry, no server. Just your Mac talking directly to claude.ai.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Styles showcase -->
+<section class="styles">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-label">Menu Bar Styles</div>
+            <h2>Your menu bar, your way.</h2>
+        </div>
+        <div class="styles-row">
+            <span class="style-chip">&#11044; Ring</span>
+            <span class="style-chip">&#9645; Pill</span>
+            <span class="style-chip">&#128994; Pulse Dot</span>
+            <span class="style-chip">&#9889; Battery</span>
+            <span class="style-chip">&#9711; Circular</span>
+            <span class="style-chip">&#128200; Segments</span>
+            <span class="style-chip">&#9632; Dual Bar</span>
+            <span class="style-chip">&#128376; Gauge</span>
+            <span class="style-chip">Aa Minimal</span>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing" id="pricing">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-label">Pricing</div>
+            <h2>One price, no subscriptions.</h2>
+        </div>
+
+        <div class="pricing-card">
+            <div class="label">ClaudeMeter Pro</div>
+            <!-- Set your price here -->
+            <div class="price">$9</div>
+            <div class="price-note">One-time purchase. Free updates forever.</div>
+
+            <ul class="pricing-features">
+                <li><span class="check">&#10003;</span> All 9 menu bar styles</li>
+                <li><span class="check">&#10003;</span> Real-time usage tracking</li>
+                <li><span class="check">&#10003;</span> Session, daily & weekly bars</li>
+                <li><span class="check">&#10003;</span> Secure Keychain storage</li>
+                <li><span class="check">&#10003;</span> Launch at login</li>
+                <li><span class="check">&#10003;</span> Future updates included</li>
+            </ul>
+
+            <!-- Replace YOUR_STORE_URL with your Gumroad or Lemon Squeezy product link -->
+            <a href="https://YOUR_STORE_URL" class="btn-buy">Buy Now &rarr;</a>
+        </div>
+
+        <div class="install-note">
+            <strong>Installation note:</strong> After downloading the DMG, drag ClaudeMeter Pro to your Applications folder.
+            On first launch, right-click the app and select <strong>Open</strong> (macOS requires this for apps
+            downloaded outside the App Store). You only need to do this once.
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <div class="container">
+        <p>Built by <a href="https://prxveen.work" target="_blank">Prxveen.work</a></p>
+    </div>
+</footer>
+
+</body>
+</html>
