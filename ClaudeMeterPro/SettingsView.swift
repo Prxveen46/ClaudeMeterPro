@@ -24,6 +24,8 @@ struct SettingsView: View {
                 switch selectedTab {
                 case .general:
                     GeneralTab(usageStore: usageStore)
+                case .history:
+                    HistoryView(historyStore: UsageHistoryStore.shared)
                 case .about:
                     AboutTab()
                 }
@@ -57,12 +59,13 @@ struct SettingsView: View {
 }
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, about
+    case general, history, about
     var id: String { rawValue }
     var title: String { rawValue.capitalized }
     var icon: String {
         switch self {
         case .general: return "gearshape.fill"
+        case .history: return "chart.xyaxis.line"
         case .about: return "info.circle.fill"
         }
     }
@@ -183,6 +186,55 @@ struct GeneralTab: View {
                         iconStyleCard("segments", label: "Segments", icon: "chart.bar.fill", text: "65% | 2h 30m")
                         iconStyleCard("dualbar", label: "Dual Bar", icon: "rectangle.leadinghalf.filled", text: "65% | 2h 30m")
                         iconStyleCard("gauge", label: "Gauge", icon: "gauge.with.dots.needle.67percent", text: "65% | 2h 30m")
+                    }
+                }
+            }
+
+            // Notifications
+            settingsCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(isOn: Binding(
+                        get: { NotificationManager.shared.isEnabled },
+                        set: { NotificationManager.shared.isEnabled = $0 }
+                    )) {
+                        cardHeader(title: "Usage Alerts", icon: "bell.fill")
+                    }
+                    .tint(ClaudeTheme.amber)
+
+                    if NotificationManager.shared.isEnabled {
+                        Text("Get notified when usage crosses these thresholds:")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 10) {
+                            ForEach([75, 90, 100], id: \.self) { threshold in
+                                let isActive = NotificationManager.shared.thresholds.contains(threshold)
+                                Button {
+                                    var current = NotificationManager.shared.thresholds
+                                    if isActive {
+                                        current.removeAll { $0 == threshold }
+                                    } else {
+                                        current.append(threshold)
+                                    }
+                                    NotificationManager.shared.thresholds = current.sorted()
+                                } label: {
+                                    Text("\(threshold)%")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(isActive ? ClaudeTheme.amber.opacity(0.15) : Color.gray.opacity(0.08))
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(isActive ? ClaudeTheme.amber.opacity(0.5) : Color.gray.opacity(0.15), lineWidth: 0.5)
+                                        )
+                                        .foregroundStyle(isActive ? ClaudeTheme.amber : .secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
                 }
             }

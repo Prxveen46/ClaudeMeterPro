@@ -9,6 +9,11 @@ class UsageStore: ObservableObject {
     @Published var hasSessionKey: Bool = false
     @Published var menuBarLabel: String = "—"
 
+    // Predictions
+    @Published var sessionPrediction: String?
+    @Published var dailyPrediction: String?
+    @Published var weeklyPrediction: String?
+
     @Published var menuBarStyle: String {
         didSet {
             UserDefaults.standard.set(menuBarStyle, forKey: "menuBarStyle")
@@ -104,7 +109,19 @@ class UsageStore: ObservableObject {
             attempts += 1
             do {
                 let info = try await webClient.fetchUsage()
+                let previousInfo = self.usageInfo
                 self.usageInfo = info
+
+                // Record to history database
+                await UsageHistoryStore.shared.recordSnapshot(info)
+
+                // Check notification thresholds
+                let countdown = formatCountdown(info.sessionResetDate.map { max(0, $0.timeIntervalSinceNow) } ?? 0)
+                NotificationManager.shared.checkAndNotify(previous: previousInfo, current: info, countdown: countdown)
+
+                // Update predictions
+                await updatePredictions(info)
+
                 self.consecutiveFailures = 0
                 lastAttemptError = nil
                 break
@@ -275,6 +292,32 @@ class UsageStore: ObservableObject {
             FileManager.default.createFile(atPath: plistURL.path, contents: data)
         } else {
             try? FileManager.default.removeItem(at: plistURL)
+        }
+    }
+
+    // MARK: - Predictions
+
+    private func updatePredictions(_ info: UsageInfo) async {
+        let recent = await UsageHistoryStore.shared.recentSnapshots(minutesBack: 30)
+
+        sessionPrediction = UsagePredictionEngine.predict(
+            snapshots: recent, currentPercent: info.sessionPercent
+        )?.formatted
+
+        if let daily = info.daily {
+            dailyPrediction = UsagePredictionEngine.predictTier(
+                snapshots: recent, currentPercent: daily.percent, tierKeyPath: \.dailyPercent
+            )?.formatted
+        } else {
+            dailyPrediction = nil
+        }
+
+        if let weekly = info.weekly {
+            weeklyPrediction = UsagePredictionEngine.predictTier(
+                snapshots: recent, currentPercent: weekly.percent, tierKeyPath: \.weeklyPercent
+            )?.formatted
+        } else {
+            weeklyPrediction = nil
         }
     }
 

@@ -21,6 +21,12 @@ struct ClaudeMeterProApp: App {
         DispatchQueue.main.async {
             NSApp?.setActivationPolicy(.accessory)
         }
+
+        // Request notification permissions
+        NotificationManager.shared.requestPermission()
+
+        // Prune old history records (> 90 days)
+        Task { await UsageHistoryStore.shared.pruneOldRecords() }
     }
 
     var body: some Scene {

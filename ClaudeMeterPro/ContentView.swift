@@ -123,6 +123,7 @@ struct ContentView: View {
                         percent: info.usagePercentInt,
                         animated: animatedPercent
                     )
+                    predictionLabel(usageStore.sessionPrediction)
 
                     // ── Daily bar (if available) ──
                     if let daily = info.daily {
@@ -131,6 +132,7 @@ struct ContentView: View {
                             percent: daily.percentInt,
                             animated: animatedDaily
                         )
+                        predictionLabel(usageStore.dailyPrediction)
                     }
 
                     // ── Weekly bar (if available) ──
@@ -248,6 +250,19 @@ struct ContentView: View {
         }
         .foregroundStyle(.tertiary)
         .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    // MARK: - Prediction Label
+
+    @ViewBuilder
+    private func predictionLabel(_ prediction: String?) -> some View {
+        if let prediction {
+            Text("Limit in \(prediction)")
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.top, -6)
+        }
     }
 
     // MARK: - Usage Row (label + bar + percentage)
