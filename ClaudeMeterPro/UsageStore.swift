@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import WidgetKit
+import Shared
 
 @MainActor
 class UsageStore: ObservableObject {
@@ -121,6 +123,9 @@ class UsageStore: ObservableObject {
 
                 // Update predictions
                 await updatePredictions(info)
+
+                // Push to widget via App Group bridge
+                self.pushToWidget(info)
 
                 self.consecutiveFailures = 0
                 lastAttemptError = nil
@@ -319,6 +324,21 @@ class UsageStore: ObservableObject {
         } else {
             weeklyPrediction = nil
         }
+    }
+
+    // MARK: - Widget Bridge
+
+    private func pushToWidget(_ info: UsageInfo) {
+        WidgetDataBridge.pushFromStore(
+            sessionPercent: info.usagePercentInt,
+            dailyPercent: info.daily?.percentInt,
+            weeklyPercent: info.weekly?.percentInt,
+            sessionResetDate: info.sessionResetDate,
+            dailyResetDate: info.daily?.resetDate,
+            weeklyResetDate: info.weekly?.resetDate,
+            hasSessionKey: hasSessionKey
+        )
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: - Formatting
