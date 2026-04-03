@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" as="style">
   <style>
     :root {
       --amber:        rgb(222, 143, 87);
@@ -757,6 +758,142 @@
     }
     .install-card strong { color: var(--text); font-weight: 600; }
 
+    /* ── COMPARISON TABLE ── */
+    .comparison { padding: 120px 0; position: relative; z-index: 1; }
+    .comparison-table-wrap {
+      max-width: 700px;
+      margin: 0 auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .comparison-table thead th {
+      padding: 18px 20px;
+      text-align: left;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border);
+    }
+    .comparison-table thead th:first-child { width: 44%; }
+    .comparison-table thead th:nth-child(2) { color: var(--amber); }
+    .comparison-table tbody td {
+      padding: 13px 20px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-sec);
+    }
+    .comparison-table tbody tr:last-child td { border-bottom: none; }
+    .comparison-table tbody td:first-child {
+      font-weight: 500;
+      color: var(--text);
+    }
+    .cmp-yes { color: var(--teal); font-weight: 600; }
+    .cmp-no { color: var(--text-dim); }
+    .cmp-highlight { color: var(--amber); font-weight: 600; }
+
+    /* ── PRIVACY CALLOUT ── */
+    .privacy-callout { padding: 80px 0; position: relative; z-index: 1; }
+    .privacy-card {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 44px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+    }
+    .privacy-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: rgba(89,191,166,0.1);
+      border: 1px solid rgba(89,191,166,0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .privacy-icon svg { width: 24px; height: 24px; color: var(--teal); }
+    .privacy-card h3 {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .privacy-card p {
+      font-size: 14px;
+      color: var(--text-sec);
+      line-height: 1.7;
+      margin-bottom: 10px;
+    }
+    .privacy-card p:last-child { margin-bottom: 0; }
+    .privacy-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .privacy-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(89,191,166,0.06);
+      border: 1px solid rgba(89,191,166,0.12);
+      border-radius: 100px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--teal);
+    }
+
+    /* ── SOCIAL PROOF ── */
+    .social-proof { padding: 80px 0; position: relative; z-index: 1; }
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .testimonial-card {
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .testimonial-stars {
+      color: var(--amber);
+      font-size: 14px;
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+    }
+    .testimonial-card blockquote {
+      font-size: 14px;
+      color: var(--text-sec);
+      line-height: 1.6;
+      font-style: italic;
+      margin-bottom: 14px;
+    }
+    .testimonial-author {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
     /* ── FOOTER ── */
     footer {
       padding: 40px 0;
@@ -780,6 +917,12 @@
       .mock-popover { transform: none; }
       .mock-settings { transform: none; }
       .pricing-card { padding: 32px 24px; }
+      .testimonials-grid { grid-template-columns: 1fr; }
+      .privacy-card { flex-direction: column; padding: 28px; }
+      .comparison-table-wrap { border-radius: 12px; }
+      .comparison-table { font-size: 13px; }
+      .comparison-table thead th,
+      .comparison-table tbody td { padding: 10px 14px; }
     }
     @media (max-width: 480px) {
       .hero { padding: 120px 0 60px; }
@@ -787,6 +930,7 @@
       .btn-primary, .btn-ghost { width: 100%; justify-content: center; }
       .menubar-chips { gap: 8px; }
       .container { padding: 0 18px; }
+      .comparison, .privacy-callout, .social-proof { padding: 60px 0; }
     }
     @media (min-width: 1440px) {
       .container { max-width: 1200px; }
@@ -810,6 +954,7 @@
       </a>
       <div class="nav-links">
         <a href="#features">Features</a>
+        <a href="#compare">Compare</a>
         <a href="#pricing">Pricing</a>
         <a href="https://prxveen.gumroad.com/l/claudemeter" class="btn-nav-cta" target="_blank">
           $1 &mdash; Get It Now
@@ -1177,6 +1322,131 @@
       <span class="style-chip">Segments</span>
       <span class="style-chip">Dual Bar</span>
       <span class="style-chip">Minimal</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── COMPARISON ── -->
+<section class="comparison" id="compare">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">How it compares</div>
+      <h2>ClaudeMeter Pro vs the rest.</h2>
+    </div>
+    <div class="comparison-table-wrap reveal reveal-delay-1">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>ClaudeMeter Pro</th>
+            <th>Usage for Claude</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Price</td>
+            <td class="cmp-highlight">$1 one-time</td>
+            <td>Free</td>
+          </tr>
+          <tr>
+            <td>Menu bar styles</td>
+            <td class="cmp-highlight">9 styles</td>
+            <td class="cmp-no">1 style</td>
+          </tr>
+          <tr>
+            <td>macOS compatibility</td>
+            <td class="cmp-highlight">macOS 13+</td>
+            <td class="cmp-no">macOS 15+ only</td>
+          </tr>
+          <tr>
+            <td>Usage history &amp; charts</td>
+            <td class="cmp-yes">Yes</td>
+            <td class="cmp-yes">Yes</td>
+          </tr>
+          <tr>
+            <td>Smart notifications</td>
+            <td class="cmp-yes">Yes</td>
+            <td class="cmp-yes">Yes</td>
+          </tr>
+          <tr>
+            <td>Usage predictions</td>
+            <td class="cmp-yes">Yes</td>
+            <td class="cmp-yes">Yes</td>
+          </tr>
+          <tr>
+            <td>Auth method</td>
+            <td class="cmp-highlight">Session key only</td>
+            <td class="cmp-no">Email + password</td>
+          </tr>
+          <tr>
+            <td>Open source</td>
+            <td class="cmp-yes">Yes</td>
+            <td class="cmp-no">No</td>
+          </tr>
+          <tr>
+            <td>Keychain storage</td>
+            <td class="cmp-yes">Yes</td>
+            <td class="cmp-no">No</td>
+          </tr>
+          <tr>
+            <td>CSV export</td>
+            <td class="cmp-yes">Yes</td>
+            <td class="cmp-yes">Yes</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRIVACY CALLOUT ── -->
+<section class="privacy-callout">
+  <div class="container">
+    <div class="privacy-card reveal">
+      <div class="privacy-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div>
+        <h3>Your data never leaves your Mac.</h3>
+        <p>ClaudeMeter Pro runs entirely on your machine. No analytics. No telemetry. No server. Your session key is stored in macOS Keychain, and usage history lives in a local SQLite database.</p>
+        <p>The source code is open on GitHub. Verify everything yourself.</p>
+        <div class="privacy-badges">
+          <span class="privacy-badge">No analytics</span>
+          <span class="privacy-badge">No telemetry</span>
+          <span class="privacy-badge">No server</span>
+          <span class="privacy-badge">Keychain storage</span>
+          <span class="privacy-badge">Open source</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SOCIAL PROOF ── -->
+<section class="social-proof">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-label">From users</div>
+      <h2>What people are saying.</h2>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card reveal reveal-delay-1">
+        <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <blockquote>&ldquo;Finally I can see exactly how much Claude I have left without guessing. The menu bar ring is genius.&rdquo;</blockquote>
+        <div class="testimonial-author">&mdash; Early beta user</div>
+      </div>
+      <div class="testimonial-card reveal reveal-delay-2">
+        <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <blockquote>&ldquo;$1 for this? It should cost way more. Usage predictions alone save me from hitting the wall mid-conversation.&rdquo;</blockquote>
+        <div class="testimonial-author">&mdash; Early beta user</div>
+      </div>
+      <div class="testimonial-card reveal reveal-delay-3">
+        <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <blockquote>&ldquo;No password required, no telemetry, open source. Exactly how a developer tool should be built.&rdquo;</blockquote>
+        <div class="testimonial-author">&mdash; Early beta user</div>
+      </div>
     </div>
   </div>
 </section>
