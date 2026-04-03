@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Carbon.HIToolbox
 import Darwin
 
 /// File descriptor kept alive for the entire process so the lock is held until exit.
@@ -27,11 +28,19 @@ struct ClaudeMeterProApp: App {
 
         // Prune old history records (> 90 days)
         Task { await UsageHistoryStore.shared.pruneOldRecords() }
+
+        // Register global keyboard shortcut: Cmd+Shift+U
+        GlobalShortcut.register()
     }
 
     var body: some Scene {
         MenuBarExtra {
             ContentView(usageStore: usageStore)
+                .onAppear {
+                    if OnboardingWindowController.shouldShow {
+                        OnboardingWindowController.shared.show(usageStore: usageStore)
+                    }
+                }
         } label: {
             MenuBarLabel(store: usageStore)
         }

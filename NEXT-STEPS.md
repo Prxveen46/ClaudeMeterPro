@@ -1,10 +1,12 @@
 # ClaudeMeter Pro — Next Steps Architecture
 
-## Current State (v1.1.0 — April 3, 2026)
+## Current State (v1.2.0 — April 3, 2026)
 
 - macOS menu bar app (Swift/SwiftUI, macOS 13+)
 - 9 menu bar styles, real-time usage tracking, session/daily/weekly bars
-- DMG build script ready (`scripts/build-dmg.sh`)
+- SQLite usage history with charts, heatmap, predictions, notifications, CSV export
+- Onboarding wizard, global shortcut (Cmd+Shift+U), shareable stats card
+- DMG build script ready (`scripts/build-dmg.sh`) with version from AppVersion.swift
 - Landing page ready (`landing/index.html`) — needs screenshot + store URL
 - Unsigned (no Apple Developer account yet)
 
@@ -34,10 +36,9 @@
 - Option C: Use a custom domain like `claudemeter.pro`
 - Set up basic analytics (Plausible or Vercel Analytics — no cookies)
 
-### 1.4 Update README
-- Remove build-from-source instructions (paid product now)
-- Add link to landing page / purchase page
-- Keep contributing section if open-source remains an option
+### 1.4 Update README — DONE
+- Updated with new feature list, simplified for product focus
+- Build-from-source still available, added DMG build instructions
 
 ---
 
@@ -57,14 +58,13 @@
 - Host appcast.xml on GitHub Pages or landing site
 - Users get notified of new versions without re-downloading manually
 
-### 2.3 Onboarding Flow
-- First-launch welcome screen with setup wizard
-- Visual guide for finding the session key (animated or step-by-step screenshots)
-- "Test Connection" step before closing onboarding
+### 2.3 Onboarding Flow — DONE
+- 3-step wizard: Welcome → Session Key Setup → Tips
+- Auto-advances on successful validation
+- Only shown on first launch (UserDefaults flag)
 
-### 2.4 CHANGELOG.md
-- Start tracking version history for transparency
-- Show "What's New" in app after updates
+### 2.4 CHANGELOG.md — DONE
+- Created with full version history (v1.0.0 through v1.2.0)
 
 ---
 
@@ -72,25 +72,10 @@
 
 **Goal:** Match competitor features, then exceed them.
 
-### 3.1 Usage History & Charts (HIGH PRIORITY)
-- Store usage snapshots locally (SQLite or JSON file)
-- Interactive chart showing usage over time (1 day, 7 days, 30 days)
-- Activity heatmap grid (GitHub-style contribution map)
-- **Why:** Competitor has this. Users want to see patterns.
-
-### 3.2 Smart Notifications
-- Alert when approaching session/daily/weekly limits
-- Configurable thresholds (e.g., notify at 80%, 90%)
-- macOS native notifications with action buttons
-
-### 3.3 Usage Predictions
-- Based on current consumption rate, estimate when limits will be hit
-- Show "Estimated time until limit" in popover
-- **Why:** Competitor has this. High-value feature for power users.
-
-### 3.4 CSV/JSON Export
-- Export usage history for personal analytics
-- One-click export from settings or popover menu
+### 3.1 Usage History & Charts — DONE
+### 3.2 Smart Notifications — DONE
+### 3.3 Usage Predictions — DONE
+### 3.4 CSV Export — DONE
 
 ### 3.5 macOS Desktop Widgets
 - WidgetKit integration for lock screen / notification center
@@ -107,19 +92,17 @@
 - Track usage across different Claude accounts (personal, work)
 - Switch between accounts from menu bar
 
-### 4.2 Keyboard Shortcut
-- Global hotkey to show/hide the popover (e.g., Cmd+Shift+C)
-- Quick glance without clicking the menu bar icon
+### 4.2 Keyboard Shortcut — DONE
+- Cmd+Shift+U global hotkey via Carbon Event API
 
 ### 4.3 Usage Budgeting
 - Set daily/weekly usage budgets
 - Visual budget tracker alongside actual limits
 - "Usage pace" indicator (ahead/behind budget)
 
-### 4.4 Shareable Stats Card
-- Generate a beautiful card image of usage stats
-- Share on social media or save locally
-- Embed app branding for organic marketing
+### 4.4 Shareable Stats Card — DONE
+- Branded dark card with percentage, bars, branding
+- Copies to clipboard + save dialog (PNG)
 
 ### 4.5 iOS Companion App (Long-term)
 - View usage history synced via iCloud
@@ -161,7 +144,7 @@ See `COMPETITIVE-ANALYSIS.md` for full comparison.
 
 ## Technical Debt to Address
 
-1. **Version management** — Currently hardcoded in SettingsView.swift and build-dmg.sh separately. Consider a single VERSION file read by both.
+1. **Version management** — DONE. Single source: `AppVersion.swift`, build script reads it via grep.
 2. **Universal binary** — Currently arm64 only. Add `--arch x86_64` for Intel Mac support (uncomment in build-dmg.sh).
 3. **API fragility** — Both this app and the competitor rely on claude.ai scraping. Monitor for Anthropic API changes. Consider official API if/when Anthropic offers usage endpoints.
 4. **Entitlements** — Sandbox is disabled. For App Store distribution (future), sandboxing would need to be enabled with proper entitlements.

@@ -1,42 +1,45 @@
 # ClaudeMeter Pro
 
-> A lightweight macOS menu bar app to monitor your Claude.ai 5-hour session usage in real time.
+> Know exactly how much Claude you have left. Right from your menu bar.
 
 ![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-blue)
 ![Language](https://img.shields.io/badge/language-Swift-orange)
-![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
 ## Overview
 
-ClaudeMeter Pro sits quietly in your macOS menu bar and shows you exactly how much of your current Claude.ai 5-hour usage window you have consumed, along with a live countdown to the next reset. No more guessing — just glance at the menu bar and get back to work.
+ClaudeMeter Pro sits in your macOS menu bar and tracks your Claude.ai usage in real time — session, daily, and weekly limits with live countdown timers, usage predictions, and history charts. No more guessing.
 
 ---
 
 ## Features
 
-- **Real-time usage tracking** — fetches your Claude.ai session usage and displays the percentage consumed in the current 5-hour window
-- **Live countdown timer** — shows the time remaining until your session resets (e.g. `1h 42m`)
-- **Multiple menu bar icon styles** — choose from Battery, Circular, Minimal, Segments, Dual Bar, or Gauge
-- **Configurable refresh interval** — poll every 1, 2, 5, or 10 minutes
-- **Secure session key storage** — your session key is stored in the macOS Keychain, never in plain text
-- **Launch at Login** — optionally start ClaudeMeter Pro automatically when you log in
-- **Zero background overhead** — countdown ticks only while the popover is open; polling uses a lightweight timer
+- **Real-time usage tracking** — live percentage and countdown for 5-hour session, daily, and weekly limits
+- **9 menu bar styles** — Ring, Pill, Pulse Dot, Battery, Circular, Gauge, Segments, Dual Bar, Minimal
+- **Usage history & charts** — interactive line chart with color-coded segments (5h to 90d range)
+- **Activity heatmap** — GitHub-style contribution grid showing daily usage patterns
+- **Smart notifications** — configurable alerts at 75%, 90%, and 100% thresholds
+- **Usage predictions** — estimates time until limit based on consumption rate
+- **CSV export** — export your usage history for personal analytics
+- **Global shortcut** — Cmd+Shift+U to toggle the popover instantly
+- **Shareable stats** — generate a branded image of your usage to share
+- **Secure Keychain storage** — session key never stored in plain text
+- **Launch at Login** — starts automatically when you log in
+- **Onboarding wizard** — guided first-launch setup
 
 ---
 
 ## Requirements
 
 - macOS 13 Ventura or later
-- Xcode 15+ / Swift 5.9+ (to build from source)
 - A Claude.ai account with an active subscription
 
 ---
 
 ## Installation
 
-### Build from Source
+Download the latest DMG from the [releases page](https://github.com/Prxveen46/ClaudeMeterPro/releases) or build from source:
 
 ```bash
 git clone https://github.com/Prxveen46/ClaudeMeterPro.git
@@ -44,90 +47,42 @@ cd ClaudeMeterPro
 swift build -c release
 ```
 
-Or open the package in Xcode:
+To create a distributable DMG:
 
 ```bash
-open Package.swift
+bash scripts/build-dmg.sh
 ```
-
-Then press **⌘R** to run, or use **Product → Archive** to create a release build.
 
 ---
 
 ## Setup
 
-1. **Launch** ClaudeMeter Pro — a new icon will appear in your menu bar.
-2. **Click** the menu bar icon and select **Settings**.
+1. **Launch** ClaudeMeter Pro — a new icon appears in your menu bar
+2. **Follow the onboarding wizard** or open Settings manually
 3. **Find your session key** in your browser:
-   - Open [claude.ai](https://claude.ai) in Chrome/Safari/Firefox.
-   - Open DevTools → Application → Cookies → `claude.ai`.
-   - Copy the value of the `sessionKey` cookie (it starts with `sk-ant-sid...`).
-4. **Paste** the key into the *Session Key* field in Settings and click **Validate & Save**.
-5. ClaudeMeter Pro will immediately fetch your usage and begin polling.
+   - Open [claude.ai](https://claude.ai) and sign in
+   - Open Developer Tools (Cmd+Option+I)
+   - Go to Application → Cookies → claude.ai
+   - Copy the value of the `sessionKey` cookie
+4. **Paste** the key and click **Validate & Save**
+
+> **First launch on unsigned builds:** Right-click the app → Open (macOS requires this once for apps downloaded outside the App Store).
 
 ---
 
-## Usage
+## Privacy
 
-| Menu Bar State | Meaning |
-|---|---|
-| `⚠ Setup` | No session key configured |
-| `...` | Fetching usage data |
-| `65% | 1h 42m` | 65% used, resets in 1 h 42 m |
-| `⚠ Error` | Could not reach Claude.ai |
-
-Click the menu bar icon to open the popover, which shows:
-
-- A large percentage readout (turns red above 90%)
-- An animated progress bar
-- A live "resets in" countdown
-- Quick access to Settings and Quit
-
----
-
-## Project Structure
-
-```
-ClaudeMeterPro/
-├── ClaudeMeterProApp.swift      # App entry point, NSStatusItem & popover setup
-├── ContentView.swift            # Menu bar popover UI
-├── SettingsView.swift           # Settings window (session key, style, interval)
-├── UsageStore.swift             # Observable state, polling, menu bar label
-├── AnthropicAPIClient.swift     # Network layer — fetches usage from Claude.ai
-├── KeychainHelper.swift         # Secure session key storage via Keychain
-├── Info.plist                   # App metadata
-└── ClaudeMeterPro.entitlements  # Sandbox & network entitlements
-Package.swift                    # Swift Package Manager manifest
-```
-
----
-
-## Privacy & Security
-
-- Your session key is stored exclusively in the **macOS Keychain**.
-- The app makes network requests only to **claude.ai** to fetch your own usage data.
-- No analytics, no telemetry, no third-party SDKs.
-
----
-
-## Contributing
-
-Pull requests are welcome! Please open an issue first to discuss significant changes.
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -m 'Add my feature'`
-4. Push to the branch: `git push origin feature/my-feature`
-5. Open a Pull Request
+- Session key stored exclusively in the **macOS Keychain**
+- Network requests only to **claude.ai** for your own usage data
+- No analytics, no telemetry, no third-party SDKs
+- All history stored locally in SQLite on your machine
 
 ---
 
 ## License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
-## Acknowledgements
-
-Built with [SwiftUI](https://developer.apple.com/xcode/swiftui/) on macOS.
+Built by [Prxveen.work](https://prxveen.work)

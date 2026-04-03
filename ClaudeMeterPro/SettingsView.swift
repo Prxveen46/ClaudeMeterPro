@@ -589,7 +589,7 @@ struct AboutTab: View {
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .padding(.top, 4)
 
-            Text("v1.1.0")
+            Text(AppVersion.display)
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(.tertiary)
                 .padding(.top, 2)

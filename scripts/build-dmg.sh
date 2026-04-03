@@ -9,18 +9,21 @@ set -euo pipefail
 
 APP_NAME="ClaudeMeterPro"
 DISPLAY_NAME="ClaudeMeter Pro"
-VERSION="1.1.0"
 BUNDLE_ID="com.praveenkumar.ClaudeMeterPro"
 MIN_MACOS="13.0"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Read version from single source of truth (AppVersion.swift)
+VERSION=$(grep 'static let current' "$PROJECT_ROOT/ClaudeMeterPro/AppVersion.swift" | sed 's/.*"\(.*\)".*/\1/')
+
 BUILD_DIR="$PROJECT_ROOT/.build/arm64-apple-macosx/release"
 APP_BUNDLE="$PROJECT_ROOT/${APP_NAME}.app"
 DMG_NAME="${APP_NAME}-v${VERSION}.dmg"
 DMG_PATH="$PROJECT_ROOT/$DMG_NAME"
 
-# For universal binary (Intel + Apple Silicon), uncomment:
+# Apple Silicon only. For universal binary (Intel + Apple Silicon), install full Xcode then use:
 # ARCH_FLAGS="--arch arm64 --arch x86_64"
 ARCH_FLAGS="--arch arm64"
 

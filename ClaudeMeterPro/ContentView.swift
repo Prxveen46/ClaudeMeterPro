@@ -200,6 +200,14 @@ struct ContentView: View {
                     SettingsWindowController.shared.open(usageStore: usageStore)
                 }
                 Spacer()
+                if usageStore.usageInfo != nil {
+                    ToolbarButton(icon: "square.and.arrow.up", label: "Share") {
+                        if let info = usageStore.usageInfo {
+                            ShareableStatsCard.share(usageInfo: info, countdown: usageStore.countdownText)
+                        }
+                    }
+                    Spacer()
+                }
                 ToolbarButton(icon: "arrow.clockwise", label: "Refresh") {
                     Task { await usageStore.fetchUsage() }
                 }
