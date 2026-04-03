@@ -84,9 +84,11 @@ struct GeneralTab: View {
             settingsCard {
                 VStack(alignment: .leading, spacing: 8) {
                     cardHeader(title: "Session Key", icon: "key.fill")
-                    Text("Your claude.ai session key. Copy it from browser cookies at claude.ai.")
+                    Text("Your claude.ai session key for tracking usage.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
+
+                    sessionKeyHelpView
 
                     HStack(spacing: 8) {
                         Group {
@@ -232,6 +234,64 @@ struct GeneralTab: View {
         }
     }
 
+    // MARK: - Session Key Help
+
+    @State private var showKeyHelp = false
+
+    private var sessionKeyHelpView: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showKeyHelp.toggle()
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 11))
+                    Text("How to get your session key")
+                        .font(.system(size: 11, weight: .medium))
+                    Image(systemName: showKeyHelp ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 9))
+                }
+                .foregroundStyle(ClaudeTheme.amber)
+            }
+            .buttonStyle(.plain)
+
+            if showKeyHelp {
+                VStack(alignment: .leading, spacing: 8) {
+                    helpStep(number: "1", text: "Open claude.ai in your browser and sign in")
+                    helpStep(number: "2", text: "Open Developer Tools (⌘⌥I on Mac)")
+                    helpStep(number: "3", text: "Go to Application → Cookies → claude.ai")
+                    helpStep(number: "4", text: "Find the cookie named \"sessionKey\"")
+                    helpStep(number: "5", text: "Copy the full value and paste it above")
+                }
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(ClaudeTheme.amber.opacity(0.04))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(ClaudeTheme.amber.opacity(0.15), lineWidth: 0.5)
+                )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func helpStep(number: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(number)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(width: 18, height: 18)
+                .background(Circle().fill(ClaudeTheme.amber))
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+    }
+
     // MARK: - New Style Preview Cards
 
     private var ringStyleCard: some View {
@@ -265,9 +325,10 @@ struct GeneralTab: View {
                         .fill(ClaudeTheme.amber)
                         .frame(width: 16, height: 8)
                 }
-                Text("65%")
+                Text("65% | 2h 30m")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.primary.opacity(0.85))
+                    .lineLimit(1)
             }
         }
     }
@@ -278,9 +339,10 @@ struct GeneralTab: View {
                 Circle()
                     .fill(ClaudeTheme.amber)
                     .frame(width: 8, height: 8)
-                Text("65%")
+                Text("65% | 2h 30m")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.85))
+                    .lineLimit(1)
             }
         }
     }
@@ -501,23 +563,6 @@ struct AboutTab: View {
             }
             .frame(width: 120)
             .padding(.vertical, 20)
-
-            Link(destination: URL(string: "https://github.com/Prxveen46/ClaudeMeterPro")!) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left.forwardslash.chevron.right")
-                        .font(.system(size: 12, weight: .medium))
-                    Text("View on GitHub")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gray.opacity(0.08))
-                )
-            }
-            .buttonStyle(.plain)
 
             SparkleText(text: "Built by Prxveen.work")
                 .padding(.top, 10)
