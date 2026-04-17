@@ -204,15 +204,14 @@ struct OnboardingView: View {
         isValidating = true
         validationMessage = nil
 
-        let success = KeychainHelper.save(apiKey: sessionKeyText)
-        usageStore.hasSessionKey = success && !sessionKeyText.isEmpty
+        // Route through UsageStore so cachedOrgId + stale usageInfo are reset.
+        usageStore.setSessionKey(sessionKeyText)
 
         Task {
-            await usageStore.fetchUsage()
+            await usageStore.fetchUsage(force: true)
             isValidating = false
             if usageStore.usageInfo != nil {
                 validationMessage = "✓ Connected successfully!"
-                usageStore.startPollingIfNeeded()
                 // Auto-advance after success
                 try? await Task.sleep(nanoseconds: 800_000_000)
                 withAnimation(.easeInOut(duration: 0.3)) { step = 2 }

@@ -223,17 +223,20 @@ class UsageHistoryStore: @unchecked Sendable {
 
     // MARK: - Helpers
 
+    // Shared formatter — all history work runs serialized on `queue`, so one
+    // instance is safe and avoids allocating a formatter per read/write row.
+    private static let iso: ISO8601DateFormatter = ISO8601DateFormatter()
+
     private func readSnapshot(_ stmt: OpaquePointer?) -> UsageSnapshot {
-        let iso = ISO8601DateFormatter()
-        return UsageSnapshot(
+        UsageSnapshot(
             id: sqlite3_column_int64(stmt, 0),
             timestamp: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
             sessionPercent: sqlite3_column_double(stmt, 2),
             dailyPercent: sqlite3_column_type(stmt, 3) != SQLITE_NULL ? sqlite3_column_double(stmt, 3) : nil,
             weeklyPercent: sqlite3_column_type(stmt, 4) != SQLITE_NULL ? sqlite3_column_double(stmt, 4) : nil,
-            sessionReset: columnDate(stmt, 5, formatter: iso),
-            dailyReset: columnDate(stmt, 6, formatter: iso),
-            weeklyReset: columnDate(stmt, 7, formatter: iso)
+            sessionReset: columnDate(stmt, 5, formatter: Self.iso),
+            dailyReset: columnDate(stmt, 6, formatter: Self.iso),
+            weeklyReset: columnDate(stmt, 7, formatter: Self.iso)
         )
     }
 
@@ -253,11 +256,18 @@ class UsageHistoryStore: @unchecked Sendable {
 
     private func bindOptionalDate(_ stmt: OpaquePointer?, _ index: Int32, _ date: Date?) {
         if let d = date {
-            let iso = ISO8601DateFormatter()
-            let text = iso.string(from: d)
-            sqlite3_bind_text(stmt, index, (text as NSString).utf8String, -1, nil)
+            let text = Self.iso.string(from: d)
+            // SQLITE_TRANSIENT — tells SQLite to copy the string. Using
+            // SQLITE_STATIC (nil) with a local `let` leaves a dangling
+            // pointer once the function returns, before sqlite3_step runs.
+            sqlite3_bind_text(stmt, index, text, -1, Self.sqliteTransient)
         } else {
             sqlite3_bind_null(stmt, index)
         }
     }
+
+    private static let sqliteTransient = unsafeBitCast(
+        OpaquePointer(bitPattern: -1),
+        to: sqlite3_destructor_type.self
+    )
 }

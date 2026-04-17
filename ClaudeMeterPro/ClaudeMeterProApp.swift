@@ -8,6 +8,14 @@ private let singleInstanceFD: CInt = {
     let lockPath = NSTemporaryDirectory() + "ClaudeMeterPro.lock"
     let fd = open(lockPath, O_CREAT | O_WRONLY, 0o600)
     guard fd != -1, flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+        // Already running — tell the user instead of silently exiting so
+        // a double-launch doesn't look like the app is broken.
+        let alert = NSAlert()
+        alert.messageText = "ClaudeMeter Pro is already running"
+        alert.informativeText = "Check your menu bar — the icon is near the top-right of your screen."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
         exit(0)
     }
     return fd

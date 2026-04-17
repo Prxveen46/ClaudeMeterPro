@@ -269,17 +269,16 @@ struct GeneralTab: View {
         isValidating = true
         validationMessage = nil
 
-        // Save key without starting polling — we'll validate first
-        let success = KeychainHelper.save(apiKey: sessionKeyText)
-        usageStore.hasSessionKey = success && !sessionKeyText.isEmpty
+        // Route through UsageStore so cachedOrgId + stale usageInfo are reset.
+        // setSessionKey kicks off its own poll; we also force a fetch so the
+        // UI reflects the validation result immediately.
+        usageStore.setSessionKey(sessionKeyText)
 
         Task {
-            await usageStore.fetchUsage()
+            await usageStore.fetchUsage(force: true)
             isValidating = false
             if usageStore.usageInfo != nil {
                 validationMessage = "✓ Connected successfully"
-                // Only start polling after confirmed working
-                usageStore.startPollingIfNeeded()
             } else {
                 validationMessage = "✗ \(usageStore.lastError ?? "Connection failed")"
             }

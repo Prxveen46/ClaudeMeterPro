@@ -62,15 +62,17 @@ class ClaudeAPIClient: NSObject {
     private var webView: WKWebView?
     private var hiddenWindow: NSWindow?
     private var webViewReady = false
-    private var navigationContinuation: CheckedContinuation<Void, Error>?
+    // Continuation is matched to its WKNavigation token so stale delegate
+    // callbacks from a prior load can't resume the wrong continuation.
+    private var pendingNavigation: (token: WKNavigation, cont: CheckedContinuation<Void, Error>)?
     private var cachedOrgId: String?
     private var currentSessionKey: String?
 
     func resetReadyState() {
         webView?.stopLoading()
-        if let cont = navigationContinuation {
-            navigationContinuation = nil
-            cont.resume(throwing: APIError.invalidResponse)
+        if let pending = pendingNavigation {
+            pendingNavigation = nil
+            pending.cont.resume(throwing: APIError.invalidResponse)
         }
         webViewReady = false
         cachedOrgId = nil
@@ -81,6 +83,13 @@ class ClaudeAPIClient: NSObject {
     func fetchUsage() async throws -> UsageInfo {
         guard let sessionKey = KeychainHelper.load(), !sessionKey.isEmpty else {
             throw APIError.noSessionKey
+        }
+
+        // Session key changed? The cached org ID belongs to the previous
+        // identity — hitting /api/organizations/{OLD}/usage with NEW cookies
+        // yields 403/404 and looks like a crash to the user.
+        if sessionKey != currentSessionKey {
+            cachedOrgId = nil
         }
 
         ensureWebView()
@@ -159,10 +168,11 @@ class ClaudeAPIClient: NSObject {
         let request = directRequest(url: url, cookies: cookies)
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let http = response as? HTTPURLResponse
+        let statusCode = http?.statusCode ?? 0
         let text = String(data: data, encoding: .utf8) ?? ""
 
-        if text.contains("Just a moment") || text.contains("cf-challenge") {
+        if Self.looksLikeCloudflareChallenge(response: http, body: text) {
             throw APIError.cloudflareBlocked
         }
 
@@ -200,10 +210,11 @@ class ClaudeAPIClient: NSObject {
         let request = directRequest(url: url, cookies: cookies)
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let http = response as? HTTPURLResponse
+        let statusCode = http?.statusCode ?? 0
         let text = String(data: data, encoding: .utf8) ?? ""
 
-        if text.contains("Just a moment") || text.contains("cf-challenge") {
+        if Self.looksLikeCloudflareChallenge(response: http, body: text) {
             throw APIError.cloudflareBlocked
         }
 
@@ -215,12 +226,14 @@ class ClaudeAPIClient: NSObject {
             throw APIError.parseError("Failed to parse usage JSON")
         }
 
-        // Dump raw JSON to a temp file for debugging the response structure
+        #if DEBUG
+        // Release builds must not leak the full JSON payload to /tmp.
         if let prettyData = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys]),
            let prettyStr = String(data: prettyData, encoding: .utf8) {
             try? prettyStr.write(toFile: "/tmp/claudemeter_usage_response.json", atomically: true, encoding: .utf8)
-            logger.info("Usage response dumped to /tmp/claudemeter_usage_response.json")
+            logger.debug("Usage response dumped to /tmp/claudemeter_usage_response.json")
         }
+        #endif
         logger.info("Usage response keys: \(Array(json.keys).sorted())")
 
         guard let info = parseUsage(json) else {
@@ -325,11 +338,37 @@ class ClaudeAPIClient: NSObject {
     private func showWebViewWindow() {
         guard let win = hiddenWindow else { return }
         win.center()
-        win.orderBack(nil)
+        // Show without stealing focus from the user's current app. macOS 14+
+        // throttles JS in fully hidden windows, so we need it on-screen, but
+        // we don't need it frontmost.
+        win.orderFrontRegardless()
     }
 
     private func hideWebViewWindow() {
         hiddenWindow?.orderOut(nil)
+    }
+
+    /// Detect Cloudflare challenges in a locale-agnostic way. Claude.ai
+    /// localizes the challenge HTML, so English-only text matches miss.
+    static func looksLikeCloudflareChallenge(response: HTTPURLResponse?, body: String) -> Bool {
+        if let cfMitigated = response?.value(forHTTPHeaderField: "cf-mitigated"),
+           !cfMitigated.isEmpty {
+            return true
+        }
+        if let contentType = response?.value(forHTTPHeaderField: "Content-Type"),
+           contentType.localizedCaseInsensitiveContains("text/html") {
+            // /api/bootstrap and /api/organizations/.../usage always return
+            // JSON on success — HTML back means a challenge/interstitial.
+            return true
+        }
+        // Defensive text markers for the challenge page body.
+        if body.contains("Just a moment")
+            || body.contains("cf-challenge")
+            || body.contains("challenge-platform")
+            || body.contains("_cf_chl_opt") {
+            return true
+        }
+        return false
     }
 
     // MARK: - Parse Usage
@@ -381,13 +420,23 @@ class ClaudeAPIClient: NSObject {
         return nil
     }
 
+    // Cached formatters — ISO8601DateFormatter allocation is not cheap and
+    // parseISO8601 runs on every poll for every tier.
+    private static let isoWithFractional: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    private static let isoPlain: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
     private func parseISO8601(_ string: String?) -> Date? {
         guard let string else { return nil }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: string) { return date }
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter.date(from: string)
+        if let date = Self.isoWithFractional.date(from: string) { return date }
+        return Self.isoPlain.date(from: string)
     }
 
     // MARK: - WebView Helpers
@@ -397,15 +446,20 @@ class ClaudeAPIClient: NSObject {
             throw APIError.invalidResponse
         }
 
+        // Cancel any in-flight navigation deterministically before starting a new one.
+        let prior = pendingNavigation
+        pendingNavigation = nil
         wv.stopLoading()
-        if let cont = navigationContinuation {
-            navigationContinuation = nil
-            cont.resume(throwing: APIError.invalidResponse)
-        }
+        prior?.cont.resume(throwing: APIError.invalidResponse)
 
         return try await withCheckedThrowingContinuation { continuation in
-            self.navigationContinuation = continuation
-            wv.load(URLRequest(url: url))
+            // Register continuation against the new navigation's token so
+            // late delegate callbacks from the prior load are discarded.
+            if let token = wv.load(URLRequest(url: url)) {
+                self.pendingNavigation = (token, continuation)
+            } else {
+                continuation.resume(throwing: APIError.invalidResponse)
+            }
         }
     }
 
@@ -425,25 +479,25 @@ class ClaudeAPIClient: NSObject {
 extension ClaudeAPIClient: WKNavigationDelegate {
     nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         Task { @MainActor in
-            guard let cont = navigationContinuation else { return }
-            navigationContinuation = nil
-            cont.resume()
+            guard let pending = pendingNavigation, pending.token === navigation else { return }
+            pendingNavigation = nil
+            pending.cont.resume()
         }
     }
 
     nonisolated func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         Task { @MainActor in
-            guard let cont = navigationContinuation else { return }
-            navigationContinuation = nil
-            cont.resume(throwing: APIError.networkError(error))
+            guard let pending = pendingNavigation, pending.token === navigation else { return }
+            pendingNavigation = nil
+            pending.cont.resume(throwing: APIError.networkError(error))
         }
     }
 
     nonisolated func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         Task { @MainActor in
-            guard let cont = navigationContinuation else { return }
-            navigationContinuation = nil
-            cont.resume(throwing: APIError.networkError(error))
+            guard let pending = pendingNavigation, pending.token === navigation else { return }
+            pendingNavigation = nil
+            pending.cont.resume(throwing: APIError.networkError(error))
         }
     }
 }

@@ -60,10 +60,17 @@ class UsageStore: ObservableObject {
     }()
 
     init() {
+        // Assign through the underlying Published wrappers so property
+        // observers (didSet -> restartPolling / updateLoginItem / label
+        // refresh) don't fire before the rest of init runs.
         let saved = UserDefaults.standard.double(forKey: "refreshInterval")
-        self.refreshInterval = saved > 0 ? saved : 120
-        self.menuBarStyle = UserDefaults.standard.string(forKey: "menuBarStyle") ?? "minimal"
-        self.launchAtLogin = UserDefaults.standard.bool(forKey: "launchAtLogin")
+        self._refreshInterval = Published(initialValue: saved > 0 ? saved : 120)
+        self._menuBarStyle = Published(
+            initialValue: UserDefaults.standard.string(forKey: "menuBarStyle") ?? "minimal"
+        )
+        self._launchAtLogin = Published(
+            initialValue: UserDefaults.standard.bool(forKey: "launchAtLogin")
+        )
         self.hasSessionKey = KeychainHelper.load() != nil
 
         if hasSessionKey {
@@ -73,11 +80,31 @@ class UsageStore: ObservableObject {
 
     // MARK: - Key Management
 
+    /// Save a new session key and reset all derived state so the next fetch
+    /// uses the new identity cleanly (no stale org ID, no stale percentages,
+    /// no carry-over error state).
     func setSessionKey(_ key: String) {
         let success = KeychainHelper.save(apiKey: key)
         hasSessionKey = success && !key.isEmpty
+
+        // Clear per-identity state — the previous user's usage percentages
+        // should not linger in the UI while the new key is validating.
+        usageInfo = nil
+        lastError = nil
+        consecutiveFailures = 0
+        retryTimer?.invalidate()
+        retryTimer = nil
+
+        // Drop the API client's cachedOrgId + Cloudflare readiness so the
+        // next fetch refetches the org for this new session.
+        webClient.resetReadyState()
+
+        updateMenuBarLabel()
+
         if hasSessionKey {
             startPolling()
+        } else {
+            stopPolling()
         }
     }
 
@@ -94,8 +121,18 @@ class UsageStore: ObservableObject {
 
     // MARK: - Fetching
 
-    func fetchUsage() async {
-        guard !isLoading else { return }  // prevent concurrent fetches
+    func fetchUsage(force: Bool = false) async {
+        // User-initiated fetches (force=true) must not be swallowed by a
+        // concurrent poll, otherwise "Validate & Save" can hang forever.
+        if isLoading && !force { return }
+        // If forcing while a poll is in flight, wait briefly for it to land
+        // rather than running two simultaneous fetches.
+        if isLoading && force {
+            for _ in 0..<50 where isLoading {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            if isLoading { return }  // still stuck — bail rather than fight it
+        }
         isLoading = true
         lastError = nil
         retryTimer?.invalidate()
@@ -135,6 +172,12 @@ class UsageStore: ObservableObject {
                 // Don't retry auth errors — they won't self-resolve
                 if case .noSessionKey = error { break }
                 if case .parseError(let msg) = error, msg.contains("expired") { break }
+                // 401/403 from the usage endpoint means the session key the
+                // server received was rejected — retrying won't help.
+                if case .httpError(let code, _) = error, code == 401 || code == 403 {
+                    lastAttemptError = "Session key rejected — paste a fresh one from claude.ai"
+                    break
+                }
                 // Retry transient errors
                 if attempts < maxAttempts {
                     try? await Task.sleep(nanoseconds: 5_000_000_000) // 5s
@@ -279,20 +322,37 @@ class UsageStore: ObservableObject {
     private func updateLoginItem() {
         let plistURL = Self.launchAgentURL
         if launchAtLogin {
-            // Resolve the current executable path
-            let execPath = ProcessInfo.processInfo.arguments.first
-                ?? Bundle.main.executablePath
-                ?? "/usr/local/bin/ClaudeMeterPro"
+            // Prefer launching via `open -a <bundle-path>` so LaunchServices
+            // resolves the current location of the app (and keeps working
+            // after the user moves the .app to a new folder). Fall back to
+            // the raw executable path for swift-build outputs where there's
+            // no .app bundle wrapper.
+            let bundleURL = Bundle.main.bundleURL
+            let isAppBundle = bundleURL.pathExtension == "app"
+
+            let programArguments: [String]
+            if isAppBundle {
+                programArguments = ["/usr/bin/open", "-a", bundleURL.path]
+            } else {
+                let execPath = Bundle.main.executablePath
+                    ?? ProcessInfo.processInfo.arguments.first
+                    ?? "/usr/local/bin/ClaudeMeterPro"
+                programArguments = [execPath]
+            }
 
             let plist: [String: Any] = [
                 "Label": Self.launchAgentLabel,
-                "ProgramArguments": [execPath],
+                "ProgramArguments": programArguments,
                 "RunAtLoad": true,
                 "KeepAlive": false,
             ]
 
             let data = try? PropertyListSerialization.data(
                 fromPropertyList: plist, format: .xml, options: 0
+            )
+            try? FileManager.default.createDirectory(
+                at: plistURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
             )
             FileManager.default.createFile(atPath: plistURL.path, contents: data)
         } else {
