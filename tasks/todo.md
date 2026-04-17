@@ -68,6 +68,52 @@
 
 All 16 audit items addressed (14 with code changes, 2 reviewed-and-closed).
 
+### Third pass — real-world test reveals two more bugs
+
+Testing against a real claude.ai account exposed issues the static audit missed.
+
+**Bug R-1: `memberships[0]` is not always the usable org.**
+User had 2 org memberships. Bootstrap succeeded; `/usage` returned 403 with
+`{"type":"permission_error","message":"Invalid authorization for organization"}`.
+The first membership was a team/shared org without usage-read permission; the
+second was the user's personal org with full permission.
+
+*Fix:* `fetchOrgIdsDirect` now returns *all* memberships sorted by role
+priority (primary_owner → owner → admin → member → unknown). `fetchUsage`
+iterates candidates until one returns 200, caches the winner for subsequent
+polls, and falls back to re-iterating if the cached winner later loses
+permission. Skips the just-failed org to avoid a redundant probe.
+
+**Bug R-2: `URLSession.shared` leaked cookies across identities.**
+`~/Library/HTTPStorages/<bundle>.binarycookies` persisted claude.ai auth
+cookies across app launches AND between sessionKey swaps, because
+`URLSession.shared`'s default HTTPCookieStorage accumulates every
+`Set-Cookie` response.
+
+*Fix:* switched to an ephemeral `URLSession` with `httpCookieAcceptPolicy =
+.never`, `httpCookieStorage = nil`, `httpShouldSetCookies = false`. The
+`Cookie` header is set manually on every request; URLSession no longer
+accumulates or injects cookies on its own.
+
+**Bug R-3 (found in final QA): race between setSessionKey and a concurrent fetchUsage.**
+`setSessionKey` kicked off `purgeClaudeAIState()` as a Task, but callers
+(`SettingsView.validateAndSave`) immediately started their own `fetchUsage`
+Task. When the purge awaited, the fetch interleaved and read stale flags
+(`webViewReady=true`, old `cachedOrgId`) from the previous identity.
+
+*Fix:* `purgeClaudeAIState` now resets its in-memory flags synchronously at
+the top of the function, before any await. `setSessionKey` also calls
+`webClient.resetReadyState()` synchronously before launching the async
+Task, so a concurrent fetch sees fresh state the moment `setSessionKey`
+returns.
+
+**Other R-pass improvements:**
+- `purgeClaudeAIState()` now nukes *every* claude.ai cookie (not just
+  `sessionKey`) plus WebKit disk storage for the domain.
+- `clearSessionKey()` also calls the purge, same sync-before-async pattern.
+- Non-200 `/usage` responses log the first 400 chars of the server body
+  (behind `logger.error` — always on, DEBUG-gated file dumps still gated).
+
 **Second-pass changes added to:**
 - `AnthropicAPIClient.swift` — locale-agnostic Cloudflare detection, debug-dump gate, cached ISO formatters, non-focus-stealing WebView window.
 - `UsageStore.swift` — init without didSet cascades, LaunchAgent via `/usr/bin/open -a`.

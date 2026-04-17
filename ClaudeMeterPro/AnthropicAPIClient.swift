@@ -104,7 +104,17 @@ class ClaudeAPIClient: NSObject {
     /// when the user switches to a different session/identity so no residual
     /// cf_clearance / lastActiveOrg / auth cookies from the prior account
     /// leak into the new one.
+    ///
+    /// In-memory flags are cleared SYNCHRONOUSLY at the start — any
+    /// concurrent fetch on the main actor will already see the reset state
+    /// even while the async WebKit cleanup is still running.
     func purgeClaudeAIState() async {
+        // Reset in-memory state first so any concurrent fetch sees fresh state.
+        webViewReady = false
+        cachedOrgId = nil
+        candidateOrgIds = []
+        currentSessionKey = nil
+
         guard let wv = webView else { return }
         let store = wv.configuration.websiteDataStore
 
@@ -124,11 +134,6 @@ class ClaudeAPIClient: NSObject {
                 for: claudeRecords
             )
         }
-
-        webViewReady = false
-        cachedOrgId = nil
-        candidateOrgIds = []
-        currentSessionKey = nil
     }
 
     // MARK: - Main Entry
@@ -180,8 +185,11 @@ class ClaudeAPIClient: NSObject {
 
     /// Try the cached-winning org first, then iterate through all candidates.
     /// Only permission-denied responses trigger the fallback — any other
-    /// error (network, Cloudflare, parse) propagates immediately.
+    /// error (network, Cloudflare, parse) propagates out of the loop and up.
     private func fetchUsageTryingAllOrgs(cookies: [HTTPCookie]) async throws -> UsageInfo {
+        // Skip the just-failed cached org in the candidate loop below.
+        var alreadyFailed: String?
+
         // Try the cached winning org first.
         if let winner = cachedOrgId {
             do {
@@ -191,6 +199,7 @@ class ClaudeAPIClient: NSObject {
                 // This org lost its permission (role change, or cache from
                 // previous identity). Fall through to re-iterate candidates.
                 logger.info("Cached org lost permission — re-scanning candidates.")
+                alreadyFailed = winner
                 cachedOrgId = nil
             }
         }
@@ -198,7 +207,7 @@ class ClaudeAPIClient: NSObject {
         // Iterate candidates in priority order. Remember the last
         // permission error so we can surface it if ALL candidates fail.
         var lastPermissionError: Error?
-        for orgId in candidateOrgIds where orgId != cachedOrgId {
+        for orgId in candidateOrgIds where orgId != alreadyFailed {
             do {
                 let info = try await fetchUsageDataDirect(orgId: orgId, cookies: cookies)
                 // Winner — cache for subsequent polls.
@@ -211,7 +220,6 @@ class ClaudeAPIClient: NSObject {
                 lastPermissionError = APIError.httpError(code, detail)
                 continue
             }
-            // Any other error exits the loop immediately.
         }
 
         // All candidates refused.

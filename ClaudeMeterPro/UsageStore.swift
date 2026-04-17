@@ -95,12 +95,20 @@ class UsageStore: ObservableObject {
         retryTimer?.invalidate()
         retryTimer = nil
 
-        // Deep-purge claude.ai state (cookies + WebKit storage) so the next
-        // fetch starts fully clean. Done async so it can't block setup flow;
-        // polling is deferred until the purge completes.
+        // Sync-reset the API client's in-memory flags (webViewReady,
+        // cachedOrgId, candidateOrgIds, currentSessionKey) BEFORE any
+        // validation fetch runs. Without this, a concurrent fetchUsage
+        // Task could slip in between `setSessionKey` returning and the
+        // async deep-purge Task starting its first await, and see stale
+        // flags from the previous identity.
+        webClient.resetReadyState()
+
         stopPolling()
         updateMenuBarLabel()
 
+        // Deep-purge disk-backed WebKit state (cookies, cache) async —
+        // this only matters for the NEXT app launch; the current fetch
+        // flow is already safe because in-memory state is reset above.
         Task { [weak self] in
             await self?.webClient.purgeClaudeAIState()
             if self?.hasSessionKey == true {
@@ -115,10 +123,11 @@ class UsageStore: ObservableObject {
         usageInfo = nil
         lastError = nil
         consecutiveFailures = 0
+        webClient.resetReadyState()  // sync in-memory reset
         stopPolling()
         updateMenuBarLabel()
         Task { [weak self] in
-            await self?.webClient.purgeClaudeAIState()
+            await self?.webClient.purgeClaudeAIState()  // async disk cleanup
         }
     }
 
