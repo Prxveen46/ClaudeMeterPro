@@ -82,7 +82,7 @@ class UsageStore: ObservableObject {
 
     /// Save a new session key and reset all derived state so the next fetch
     /// uses the new identity cleanly (no stale org ID, no stale percentages,
-    /// no carry-over error state).
+    /// no carry-over cookies or error state).
     func setSessionKey(_ key: String) {
         let success = KeychainHelper.save(apiKey: key)
         hasSessionKey = success && !key.isEmpty
@@ -95,16 +95,17 @@ class UsageStore: ObservableObject {
         retryTimer?.invalidate()
         retryTimer = nil
 
-        // Drop the API client's cachedOrgId + Cloudflare readiness so the
-        // next fetch refetches the org for this new session.
-        webClient.resetReadyState()
-
+        // Deep-purge claude.ai state (cookies + WebKit storage) so the next
+        // fetch starts fully clean. Done async so it can't block setup flow;
+        // polling is deferred until the purge completes.
+        stopPolling()
         updateMenuBarLabel()
 
-        if hasSessionKey {
-            startPolling()
-        } else {
-            stopPolling()
+        Task { [weak self] in
+            await self?.webClient.purgeClaudeAIState()
+            if self?.hasSessionKey == true {
+                self?.startPolling()
+            }
         }
     }
 
@@ -114,9 +115,11 @@ class UsageStore: ObservableObject {
         usageInfo = nil
         lastError = nil
         consecutiveFailures = 0
-        webClient.resetReadyState()
         stopPolling()
         updateMenuBarLabel()
+        Task { [weak self] in
+            await self?.webClient.purgeClaudeAIState()
+        }
     }
 
     // MARK: - Fetching

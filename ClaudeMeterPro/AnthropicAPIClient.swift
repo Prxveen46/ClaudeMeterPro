@@ -65,8 +65,28 @@ class ClaudeAPIClient: NSObject {
     // Continuation is matched to its WKNavigation token so stale delegate
     // callbacks from a prior load can't resume the wrong continuation.
     private var pendingNavigation: (token: WKNavigation, cont: CheckedContinuation<Void, Error>)?
+    // The org ID that actually returns 200 on /usage — different from
+    // memberships[0] for users in multiple orgs.
     private var cachedOrgId: String?
+    // Candidate org IDs from bootstrap, ordered by role-based priority.
+    // We iterate through these until one returns 200 on /usage.
+    private var candidateOrgIds: [String] = []
     private var currentSessionKey: String?
+
+    // Ephemeral URLSession — isolated from `URLSession.shared`'s
+    // HTTPCookieStorage which would otherwise persist claude.ai cookies to
+    // disk (~/Library/HTTPStorages/<bundle-id>.binarycookies) across app
+    // launches and between identities. We set the Cookie header manually,
+    // so URLSession must not handle cookies on our behalf.
+    private lazy var urlSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.httpCookieAcceptPolicy = .never
+        config.httpCookieStorage = nil
+        config.httpShouldSetCookies = false
+        config.urlCache = nil
+        config.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        return URLSession(configuration: config)
+    }()
 
     func resetReadyState() {
         webView?.stopLoading()
@@ -76,6 +96,39 @@ class ClaudeAPIClient: NSObject {
         }
         webViewReady = false
         cachedOrgId = nil
+        candidateOrgIds = []
+        currentSessionKey = nil
+    }
+
+    /// Fully wipe claude.ai cookies and WebKit storage for the domain. Call
+    /// when the user switches to a different session/identity so no residual
+    /// cf_clearance / lastActiveOrg / auth cookies from the prior account
+    /// leak into the new one.
+    func purgeClaudeAIState() async {
+        guard let wv = webView else { return }
+        let store = wv.configuration.websiteDataStore
+
+        // Delete every cookie on claude.ai domains.
+        let all = await store.httpCookieStore.allCookies()
+        for cookie in all where cookie.domain.contains("claude.ai") {
+            await store.httpCookieStore.deleteCookie(cookie)
+        }
+
+        // Remove disk-backed data (local storage, cache, etc.) for the claude
+        // .ai domain so nothing persists across identity changes.
+        let records = await store.dataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes())
+        let claudeRecords = records.filter { $0.displayName.contains("claude.ai") }
+        if !claudeRecords.isEmpty {
+            await store.removeData(
+                ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+                for: claudeRecords
+            )
+        }
+
+        webViewReady = false
+        cachedOrgId = nil
+        candidateOrgIds = []
+        currentSessionKey = nil
     }
 
     // MARK: - Main Entry
@@ -85,11 +138,10 @@ class ClaudeAPIClient: NSObject {
             throw APIError.noSessionKey
         }
 
-        // Session key changed? The cached org ID belongs to the previous
-        // identity — hitting /api/organizations/{OLD}/usage with NEW cookies
-        // yields 403/404 and looks like a crash to the user.
+        // Session key changed? Everything cached is for the previous identity.
         if sessionKey != currentSessionKey {
             cachedOrgId = nil
+            candidateOrgIds = []
         }
 
         ensureWebView()
@@ -102,15 +154,15 @@ class ClaudeAPIClient: NSObject {
                 webViewReady = true
             }
 
-            // Use URLSession with Cloudflare cookies from WebView + fresh session key
             do {
                 let cookies = await gatherCookies(sessionKey: sessionKey)
 
-                if cachedOrgId == nil {
-                    cachedOrgId = try await fetchOrgIdDirect(cookies: cookies)
+                // Populate the candidate list on first fetch for this identity.
+                if candidateOrgIds.isEmpty {
+                    candidateOrgIds = try await fetchOrgIdsDirect(cookies: cookies)
                 }
 
-                return try await fetchUsageDataDirect(orgId: cachedOrgId!, cookies: cookies)
+                return try await fetchUsageTryingAllOrgs(cookies: cookies)
             } catch APIError.cloudflareBlocked where attempt < 2 {
                 logger.info("Cloudflare detected in API response, re-solving...")
                 webViewReady = false
@@ -124,6 +176,49 @@ class ClaudeAPIClient: NSObject {
         }
 
         throw APIError.cloudflareBlocked
+    }
+
+    /// Try the cached-winning org first, then iterate through all candidates.
+    /// Only permission-denied responses trigger the fallback — any other
+    /// error (network, Cloudflare, parse) propagates immediately.
+    private func fetchUsageTryingAllOrgs(cookies: [HTTPCookie]) async throws -> UsageInfo {
+        // Try the cached winning org first.
+        if let winner = cachedOrgId {
+            do {
+                return try await fetchUsageDataDirect(orgId: winner, cookies: cookies)
+            } catch APIError.httpError(let code, let detail)
+                where (code == 403 || code == 404) && detail.contains("permission") {
+                // This org lost its permission (role change, or cache from
+                // previous identity). Fall through to re-iterate candidates.
+                logger.info("Cached org lost permission — re-scanning candidates.")
+                cachedOrgId = nil
+            }
+        }
+
+        // Iterate candidates in priority order. Remember the last
+        // permission error so we can surface it if ALL candidates fail.
+        var lastPermissionError: Error?
+        for orgId in candidateOrgIds where orgId != cachedOrgId {
+            do {
+                let info = try await fetchUsageDataDirect(orgId: orgId, cookies: cookies)
+                // Winner — cache for subsequent polls.
+                cachedOrgId = orgId
+                logger.info("Usage endpoint accepted org \(orgId.prefix(8), privacy: .public)…")
+                return info
+            } catch APIError.httpError(let code, let detail)
+                where (code == 403 || code == 404) && detail.contains("permission") {
+                logger.info("Org \(orgId.prefix(8), privacy: .public)… denied /usage — trying next.")
+                lastPermissionError = APIError.httpError(code, detail)
+                continue
+            }
+            // Any other error exits the loop immediately.
+        }
+
+        // All candidates refused.
+        if let err = lastPermissionError {
+            throw err
+        }
+        throw APIError.parseError("No organization in this account has permission to read usage.")
     }
 
     // MARK: - Direct URLSession API Calls
@@ -163,11 +258,15 @@ class ClaudeAPIClient: NSObject {
         return request
     }
 
-    private func fetchOrgIdDirect(cookies: [HTTPCookie]) async throws -> String {
+    /// Fetch ALL organization IDs the session has access to. Many accounts
+    /// have multiple memberships (personal + a shared/team org), and only
+    /// SOME of those have permission to view `/usage`. Caller iterates
+    /// through this list until one returns 200.
+    private func fetchOrgIdsDirect(cookies: [HTTPCookie]) async throws -> [String] {
         let url = URL(string: "https://claude.ai/api/bootstrap")!
         let request = directRequest(url: url, cookies: cookies)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await urlSession.data(for: request)
         let http = response as? HTTPURLResponse
         let statusCode = http?.statusCode ?? 0
         let text = String(data: data, encoding: .utf8) ?? ""
@@ -193,23 +292,48 @@ class ClaudeAPIClient: NSObject {
         }
 
         let memberships = account["memberships"] as? [[String: Any]] ?? []
-        let orgId = (memberships.first?["organization"] as? [String: Any])?["uuid"] as? String
-            ?? json["organization_uuid"] as? String
-            ?? ""
 
-        guard !orgId.isEmpty else {
+        // Prefer orgs where the member has admin/owner/primary-owner role
+        // (those typically have usage-read permission). Fall back to all
+        // memberships, then to the flat `organization_uuid` if present.
+        let prioritized: [[String: Any]] = memberships.sorted { a, b in
+            priority(of: a) < priority(of: b)
+        }
+        var ids: [String] = prioritized.compactMap {
+            ($0["organization"] as? [String: Any])?["uuid"] as? String
+        }
+        if ids.isEmpty, let single = json["organization_uuid"] as? String, !single.isEmpty {
+            ids = [single]
+        }
+
+        guard !ids.isEmpty else {
             throw APIError.parseError("No organization found — check session key")
         }
 
-        logger.info("Org ID: \(orgId.prefix(8))...")
-        return orgId
+        logger.info("Found \(ids.count) organization(s) to try.")
+        return ids
+    }
+
+    /// Role priority: lower = try first. Primary owner / admin orgs are more
+    /// likely to have usage-read permission than orgs the user was merely
+    /// invited into as a regular member.
+    private func priority(of membership: [String: Any]) -> Int {
+        let role = (membership["organization_role"] as? String
+            ?? membership["role"] as? String
+            ?? "").lowercased()
+        switch role {
+        case "primary_owner", "owner": return 0
+        case "admin": return 1
+        case "member": return 2
+        default: return 3
+        }
     }
 
     private func fetchUsageDataDirect(orgId: String, cookies: [HTTPCookie]) async throws -> UsageInfo {
         let url = URL(string: "https://claude.ai/api/organizations/\(orgId)/usage")!
         let request = directRequest(url: url, cookies: cookies)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await urlSession.data(for: request)
         let http = response as? HTTPURLResponse
         let statusCode = http?.statusCode ?? 0
         let text = String(data: data, encoding: .utf8) ?? ""
@@ -219,6 +343,11 @@ class ClaudeAPIClient: NSObject {
         }
 
         guard statusCode == 200 else {
+            // Log the server's response body so we can see WHY /usage was
+            // rejected (account tier? scope? missing header?). The /usage
+            // endpoint typically returns small JSON error bodies.
+            let snippet = String(text.prefix(400))
+            logger.error("Usage API non-200 (status=\(statusCode, privacy: .public)): \(snippet, privacy: .public)")
             throw APIError.httpError(statusCode, "Usage API: \(text.prefix(200))")
         }
 
