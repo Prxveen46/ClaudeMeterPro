@@ -112,31 +112,35 @@ hdiutil create -volname "$DISPLAY_NAME" \
 rm -rf "$STAGING"
 rm -rf "$APP_BUNDLE"
 
-# Step 6: Notarization (optional — requires APPLE_ID, TEAM_ID, and APP_PASSWORD)
-if [ -n "${DEVELOPER_ID:-}" ] && [ -n "${APPLE_ID:-}" ] && [ -n "${TEAM_ID:-}" ]; then
+# Step 6: Notarization (optional — requires APPLE_ID, TEAM_ID, and APP_PASSWORD or NOTARY_KEYCHAIN_PROFILE)
+# Set SKIP_NOTARIZE=1 to skip this step (e.g. when CI handles notarization separately)
+if [ "${SKIP_NOTARIZE:-0}" = "1" ]; then
+    echo "[6/6] Skipping notarization (SKIP_NOTARIZE=1)"
+elif [ -n "${DEVELOPER_ID:-}" ] && [ -n "${APPLE_ID:-}" ] && [ -n "${TEAM_ID:-}" ] && [ -n "${APP_PASSWORD:-}" ]; then
     echo "[6/6] Submitting for notarization..."
-    if [ -n "${APP_PASSWORD:-}" ]; then
-        NOTARY_OUTPUT=$(xcrun notarytool submit "$DMG_PATH" \
-            --apple-id "$APPLE_ID" \
-            --team-id "$TEAM_ID" \
-            --password "$APP_PASSWORD" \
-            --wait 2>&1)
-        echo "$NOTARY_OUTPUT"
-        if echo "$NOTARY_OUTPUT" | grep -q "status: Accepted"; then
-            echo "      Stapling notarization ticket..."
-            xcrun stapler staple "$DMG_PATH"
-            echo "      Notarization complete. DMG is ready for distribution."
-        else
-            echo "      Notarization failed. Check output above."
-            exit 1
-        fi
-    else
-        echo "      APP_PASSWORD not set. Use an app-specific password from appleid.apple.com"
-        echo "      Or store in keychain: xcrun notarytool store-credentials"
-        echo "      Then: xcrun notarytool submit \"$DMG_PATH\" --keychain-profile \"notary-profile\" --wait"
-    fi
+    xcrun notarytool submit "$DMG_PATH" \
+        --apple-id "$APPLE_ID" \
+        --team-id "$TEAM_ID" \
+        --password "$APP_PASSWORD" \
+        --wait
+    echo "      Stapling notarization ticket..."
+    xcrun stapler staple "$DMG_PATH"
+    xcrun stapler validate "$DMG_PATH"
+    echo "      Notarization complete. DMG is ready for distribution."
+elif [ -n "${DEVELOPER_ID:-}" ] && [ -n "${NOTARY_KEYCHAIN_PROFILE:-}" ]; then
+    echo "[6/6] Submitting for notarization (keychain profile: $NOTARY_KEYCHAIN_PROFILE)..."
+    xcrun notarytool submit "$DMG_PATH" \
+        --keychain-profile "$NOTARY_KEYCHAIN_PROFILE" \
+        --wait
+    echo "      Stapling notarization ticket..."
+    xcrun stapler staple "$DMG_PATH"
+    xcrun stapler validate "$DMG_PATH"
+    echo "      Notarization complete. DMG is ready for distribution."
 else
-    echo "[6/6] Skipping notarization (requires DEVELOPER_ID, APPLE_ID, TEAM_ID, APP_PASSWORD)"
+    echo "[6/6] Skipping notarization"
+    echo "      Option A — env vars: DEVELOPER_ID, APPLE_ID, TEAM_ID, APP_PASSWORD"
+    echo "      Option B — keychain: xcrun notarytool store-credentials --apple-id ... --team-id ..."
+    echo "                           then set NOTARY_KEYCHAIN_PROFILE=<profile-name>"
 fi
 
 # Summary
